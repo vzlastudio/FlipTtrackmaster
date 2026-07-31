@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { FlipItem, AppSettings } from "../../types";
-import { Truck, ExternalLink, X, CheckCircle2, Clock, Pencil, Package, MapPin, Plane, Home } from "lucide-react";
+import { Truck, ExternalLink, X, CheckCircle2, Clock, Pencil, Package, MapPin, Plane, Home, List, LayoutGrid } from "lucide-react";
 import { formatUSD } from "../../lib/currency";
 
 interface LogisticsPatch {
@@ -36,6 +36,8 @@ const STEP_FIELD_LABEL: Record<number, string> = {
   4: "Sucursal / ubicación en Venezuela",
 };
 
+type LogisticsView = "lista" | "cuadricula";
+
 export const LogisticsModule: React.FC<LogisticsModuleProps> = ({
   flips,
   settings,
@@ -59,6 +61,9 @@ export const LogisticsModule: React.FC<LogisticsModuleProps> = ({
     warehouseLocationVzla: "",
     statusText: "",
   });
+
+  // ---- Selector de vista (lista / cuadrícula) ----
+  const [view, setView] = useState<LogisticsView>("lista");
 
   const selectedFlip = inLogistics.find((f) => f.id === selectedFlipId) || null;
 
@@ -108,9 +113,36 @@ export const LogisticsModule: React.FC<LogisticsModuleProps> = ({
             </p>
           </div>
 
-          <div className="bg-[#dbdad7]/30 border border-[#e6e4e0] rounded-lg p-3 text-xs space-y-1 shrink-0">
-            <div className="text-[10px] text-[#616161] font-medium uppercase">Dirección Casillero Miami</div>
-            <div className="font-mono text-[#121212] text-[11px] font-bold">{activeCourier.addressCasilleroMiami}</div>
+          {/* Columna derecha: dirección del casillero + selector de vista debajo */}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <div className="bg-[#dbdad7]/30 border border-[#e6e4e0] rounded-lg p-3 text-xs space-y-1">
+              <div className="text-[10px] text-[#616161] font-medium uppercase">Dirección Casillero Miami</div>
+              <div className="font-mono text-[#121212] text-[11px] font-bold">{activeCourier.addressCasilleroMiami}</div>
+            </div>
+
+            {/* Selector de vista: lista / cuadrícula */}
+            <div className="flex items-center bg-[#dbdad7]/40 border border-[#e6e4e0] rounded-full p-0.5">
+              <button
+                onClick={() => setView("lista")}
+                className={`flex items-center space-x-1 text-[10px] font-medium px-3 py-1.5 rounded-full transition ${
+                  view === "lista" ? "bg-[#121212] text-white" : "text-[#616161] hover:text-[#121212]"
+                }`}
+                aria-pressed={view === "lista"}
+              >
+                <List className="w-3 h-3" />
+                <span>Lista</span>
+              </button>
+              <button
+                onClick={() => setView("cuadricula")}
+                className={`flex items-center space-x-1 text-[10px] font-medium px-3 py-1.5 rounded-full transition ${
+                  view === "cuadricula" ? "bg-[#121212] text-white" : "text-[#616161] hover:text-[#121212]"
+                }`}
+                aria-pressed={view === "cuadricula"}
+              >
+                <LayoutGrid className="w-3 h-3" />
+                <span>Cuadrícula</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -133,132 +165,230 @@ export const LogisticsModule: React.FC<LogisticsModuleProps> = ({
         })}
       </div>
 
-      {/* Tabla de paquetes en tránsito */}
-      <div className="bg-white border border-[#e6e4e0] rounded-lg p-6 shadow-none">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-[#121212]">
-            <thead className="bg-[#dbdad7]/30 text-[#616161] font-medium uppercase text-[10px] tracking-wider">
-              <tr>
-                <th className="p-3 rounded-l-lg">Producto</th>
-                <th className="p-3">Etapa Actual</th>
-                <th className="p-3">Tracking US</th>
-                <th className="p-3">Tracking Internacional (Liberty)</th>
-                <th className="p-3 text-right rounded-r-lg">Acción</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e6e4e0]">
-              {inLogistics.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-[#616161]">
-                    <Package className="w-6 h-6 text-[#616161] mx-auto mb-2" />
-                    Sin paquetes en tránsito. Compra o registra un flip para comenzar el seguimiento.
-                  </td>
-                </tr>
-              )}
-
-              {inLogistics.map((flip) => {
-                const leg = flip.logistics?.currentLeg || 1;
-                const trackingUS = flip.logistics?.trackingUS;
-                const trackingLib = flip.logistics?.trackingNumber;
-                const libertyPending = leg < 2;
-
-                return (
-                  <tr key={flip.id} className="hover:bg-[#dbdad7]/20 transition">
-                    {/* Producto */}
-                    <td className="p-3">
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src={flip.imageUrl}
-                          alt={flip.title}
-                          className="w-12 h-12 rounded-lg object-cover border border-[#e6e4e0] bg-[#dbdad7]/30 shrink-0"
-                        />
-                        <div>
-                          <div className="font-serif text-sm font-normal text-[#121212] line-clamp-1 max-w-[200px]">
-                            {flip.title}
-                          </div>
-                          <div className="text-[10px] text-[#616161]">
-                            Peso: <strong className="text-[#121212]">{flip.logistics?.weightLbs || 3.5} lbs</strong> • Flete:{" "}
-                            <strong className="text-[#121212]">{formatUSD(flip.logistics?.freightCostUSD || 20)}</strong>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Etapa actual (mini stepper de 4 segmentos) */}
-                    <td className="p-3">
-                      <div className="flex items-center space-x-1 mb-1.5">
-                        {LEGS.map((l) => (
-                          <div
-                            key={l.n}
-                            className={`h-1.5 flex-1 rounded-full ${leg >= l.n ? "bg-[#121212]" : "bg-[#dbdad7]"}`}
-                            title={l.label}
-                          />
-                        ))}
-                      </div>
-                      <div className="text-[10px] font-medium text-[#121212]">
-                        {LEGS.find((l) => l.n === leg)?.label}
-                      </div>
-                      <div className="text-[10px] text-[#616161] line-clamp-1 max-w-[140px]">
-                        {flip.logistics?.carrierStatusText || "En tránsito normal"}
-                      </div>
-                    </td>
-
-                    {/* Tracking US */}
-                    <td className="p-3">
-                      {trackingUS ? (
-                        <span className="font-mono text-[11px] text-[#121212] font-semibold">{trackingUS}</span>
-                      ) : (
-                        <span className="text-[10px] text-[#a16207] italic">Sin registrar</span>
-                      )}
-                    </td>
-
-                    {/* Tracking Internacional (Liberty) — secuencia lógica: solo tras llegar a Miami */}
-                    <td className="p-3">
-                      {libertyPending ? (
-                        <div className="text-[10px] text-[#616161] italic flex items-center space-x-1">
-                          <Clock className="w-3 h-3" />
-                          <span>Pendiente — esperando llegada a Miami</span>
-                        </div>
-                      ) : trackingLib ? (
-                        <a
-                          href={`${activeCourier.trackingBaseUrl}${trackingLib}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-mono text-[11px] text-[#121212] font-semibold hover:underline flex items-center space-x-1"
-                        >
-                          <span>{trackingLib}</span>
-                          <ExternalLink className="w-3 h-3 text-[#121212]" />
-                        </a>
-                      ) : (
-                        <span className="text-[10px] text-[#a16207] italic">Agregar guía</span>
-                      )}
-                    </td>
-
-                    {/* Acciones */}
-                    <td className="p-3 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => onViewFlipDetails(flip)}
-                          className="text-xs text-[#121212] hover:underline font-medium shrink-0"
-                        >
-                          Ficha
-                        </button>
-                        <button
-                          onClick={() => openModal(flip)}
-                          className="bg-[#121212] hover:bg-[#282828] text-white font-medium text-xs px-3.5 py-1.5 rounded-full transition flex items-center space-x-1 shadow-none"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          <span>Actualizar</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Vista de paquetes: lista (tabla) o cuadrícula (tarjetas) */}
+      {inLogistics.length === 0 ? (
+        <div className="bg-white border border-dashed border-[#e6e4e0] rounded-lg p-10 text-center">
+          <Package className="w-8 h-8 text-[#616161] mx-auto mb-2" />
+          <h3 className="font-serif text-base text-[#121212]">Sin paquetes en tránsito</h3>
+          <p className="text-xs text-[#616161] mt-1 max-w-md mx-auto">
+            Compra o registra un flip para comenzar el seguimiento.
+          </p>
         </div>
-      </div>
+      ) : view === "lista" ? (
+        /* Vista lista: tabla */
+        <div className="bg-white border border-[#e6e4e0] rounded-lg p-6 shadow-none">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-[#121212]">
+              <thead className="bg-[#dbdad7]/30 text-[#616161] font-medium uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="p-3 rounded-l-lg">Producto</th>
+                  <th className="p-3">Etapa Actual</th>
+                  <th className="p-3">Tracking US</th>
+                  <th className="p-3">Tracking Internacional (Liberty)</th>
+                  <th className="p-3 text-right rounded-r-lg">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e6e4e0]">
+                {inLogistics.map((flip) => {
+                  const leg = flip.logistics?.currentLeg || 1;
+                  const trackingUS = flip.logistics?.trackingUS;
+                  const trackingLib = flip.logistics?.trackingNumber;
+                  const libertyPending = leg < 2;
+
+                  return (
+                    <tr key={flip.id} className="hover:bg-[#dbdad7]/20 transition">
+                      {/* Producto */}
+                      <td className="p-3">
+                        <div className="flex items-center space-x-3">
+                          <img
+                            src={flip.imageUrl}
+                            alt={flip.title}
+                            className="w-12 h-12 rounded-lg object-cover border border-[#e6e4e0] bg-[#dbdad7]/30 shrink-0"
+                          />
+                          <div>
+                            <div className="font-serif text-sm font-normal text-[#121212] line-clamp-1 max-w-[200px]">
+                              {flip.title}
+                            </div>
+                            <div className="text-[10px] text-[#616161]">
+                              Peso: <strong className="text-[#121212]">{flip.logistics?.weightLbs || 3.5} lbs</strong> • Flete:{" "}
+                              <strong className="text-[#121212]">{formatUSD(flip.logistics?.freightCostUSD || 20)}</strong>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Etapa actual (mini stepper de 4 segmentos) */}
+                      <td className="p-3">
+                        <div className="flex items-center space-x-1 mb-1.5">
+                          {LEGS.map((l) => (
+                            <div
+                              key={l.n}
+                              className={`h-1.5 flex-1 rounded-full ${leg >= l.n ? "bg-[#121212]" : "bg-[#dbdad7]"}`}
+                              title={l.label}
+                            />
+                          ))}
+                        </div>
+                        <div className="text-[10px] font-medium text-[#121212]">
+                          {LEGS.find((l) => l.n === leg)?.label}
+                        </div>
+                        <div className="text-[10px] text-[#616161] line-clamp-1 max-w-[140px]">
+                          {flip.logistics?.carrierStatusText || "En tránsito normal"}
+                        </div>
+                      </td>
+
+                      {/* Tracking US */}
+                      <td className="p-3">
+                        {trackingUS ? (
+                          <span className="font-mono text-[11px] text-[#121212] font-semibold">{trackingUS}</span>
+                        ) : (
+                          <span className="text-[10px] text-[#a16207] italic">Sin registrar</span>
+                        )}
+                      </td>
+
+                      {/* Tracking Internacional (Liberty) — secuencia lógica: solo tras llegar a Miami */}
+                      <td className="p-3">
+                        {libertyPending ? (
+                          <div className="text-[10px] text-[#616161] italic flex items-center space-x-1">
+                            <Clock className="w-3 h-3" />
+                            <span>Pendiente — esperando llegada a Miami</span>
+                          </div>
+                        ) : trackingLib ? (
+                          <a
+                            href={`${activeCourier.trackingBaseUrl}${trackingLib}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-mono text-[11px] text-[#121212] font-semibold hover:underline flex items-center space-x-1"
+                          >
+                            <span>{trackingLib}</span>
+                            <ExternalLink className="w-3 h-3 text-[#121212]" />
+                          </a>
+                        ) : (
+                          <span className="text-[10px] text-[#a16207] italic">Agregar guía</span>
+                        )}
+                      </td>
+
+                      {/* Acciones */}
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => onViewFlipDetails(flip)}
+                            className="text-xs text-[#121212] hover:underline font-medium shrink-0"
+                          >
+                            Ficha
+                          </button>
+                          <button
+                            onClick={() => openModal(flip)}
+                            className="bg-[#121212] hover:bg-[#282828] text-white font-medium text-xs px-3.5 py-1.5 rounded-full transition flex items-center space-x-1 shadow-none"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Actualizar</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* Vista cuadrícula: tarjetas */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {inLogistics.map((flip) => {
+            const leg = flip.logistics?.currentLeg || 1;
+            const trackingUS = flip.logistics?.trackingUS;
+            const trackingLib = flip.logistics?.trackingNumber;
+            const libertyPending = leg < 2;
+
+            return (
+              <div key={flip.id} className="bg-white border border-[#e6e4e0] rounded-lg p-5 shadow-none space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <img
+                      src={flip.imageUrl}
+                      alt={flip.title}
+                      className="w-12 h-12 rounded-lg object-cover border border-[#e6e4e0] bg-[#dbdad7]/30 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <h3 className="font-serif text-sm font-normal text-[#121212] line-clamp-2">{flip.title}</h3>
+                      <div className="text-[10px] text-[#616161]">
+                        Peso: <strong className="text-[#121212]">{flip.logistics?.weightLbs || 3.5} lbs</strong> • Flete:{" "}
+                        <strong className="text-[#121212]">{formatUSD(flip.logistics?.freightCostUSD || 20)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openModal(flip)}
+                    className="bg-[#121212] hover:bg-[#282828] text-white font-medium text-[10px] px-3 py-1.5 rounded-full transition flex items-center space-x-1 shrink-0"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>Actualizar</span>
+                  </button>
+                </div>
+
+                {/* Mini stepper de 4 segmentos */}
+                <div className="flex items-center space-x-1">
+                  {LEGS.map((l) => (
+                    <div
+                      key={l.n}
+                      className={`h-1.5 flex-1 rounded-full ${leg >= l.n ? "bg-[#121212]" : "bg-[#dbdad7]"}`}
+                      title={l.label}
+                    />
+                  ))}
+                </div>
+                <div className="text-[10px] font-medium text-[#121212]">
+                  {LEGS.find((l) => l.n === leg)?.label}
+                  <span className="text-[#616161] font-normal"> — {flip.logistics?.carrierStatusText || "En tránsito normal"}</span>
+                </div>
+
+                {/* Trackings */}
+                <div className="bg-[#dbdad7]/30 border border-[#e6e4e0] rounded-lg p-3 space-y-1.5 text-xs">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-[#616161]">Tracking US:</span>
+                    {trackingUS ? (
+                      <span className="font-mono text-[#121212] font-semibold truncate max-w-[160px]">{trackingUS}</span>
+                    ) : (
+                      <span className="text-[10px] text-[#a16207] italic">Sin registrar</span>
+                    )}
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-[#616161]">Guía Liberty:</span>
+                    {libertyPending ? (
+                      <span className="text-[10px] text-[#616161] italic flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>Pendiente — Miami</span>
+                      </span>
+                    ) : trackingLib ? (
+                      <a
+                        href={`${activeCourier.trackingBaseUrl}${trackingLib}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono text-[#121212] font-semibold hover:underline flex items-center space-x-1 truncate max-w-[160px]"
+                      >
+                        <span className="truncate">{trackingLib}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-[#a16207] italic">Agregar guía</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-[#e6e4e0]">
+                  <button
+                    onClick={() => onViewFlipDetails(flip)}
+                    className="text-xs text-[#121212] hover:underline font-medium"
+                  >
+                    Ficha completa
+                  </button>
+                  <span className="text-[10px] text-[#616161] font-mono">Tramo {leg} / 4</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ---- Modal por producto (reemplaza el formulario global) ---- */}
       {selectedFlip && (
