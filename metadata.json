@@ -1,0 +1,6 @@
+{
+  "name": "FlipTrack - Sistema Operativo de Flipping",
+  "description": "Sistema operativo de flipping para Venezuela impulsado por la IA FlipMaster: análisis forense de ofertas, calculo de restauración, envíos Liberty courier y control operativo 360°.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

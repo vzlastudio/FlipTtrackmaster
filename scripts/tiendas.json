@@ -1,0 +1,35 @@
+[
+  {
+    "id": "t-regency",
+    "nombre": "Regency Technologies (Apple)",
+    "url": "https://www.ebay.com/sch/m.html?_ssn=regencytechnologies&_sop=1",
+    "tier": "B",
+    "precioMaximoUSD": 150,
+    "categoria": "Apple (MacBooks, iPhones, iPads)",
+    "activa": true,
+    "frecuenciaHoras": 24,
+    "bloqueaCourier": false
+  },
+  {
+    "id": "t-northbay",
+    "nombre": "northbaymac",
+    "url": "https://www.ebay.com/sch/m.html?_ssn=northbaymac&_sop=1",
+    "tier": "A",
+    "precioMaximoUSD": 300,
+    "categoria": "MacBooks",
+    "activa": true,
+    "frecuenciaHoras": 24,
+    "bloqueaCourier": false
+  },
+  {
+    "id": "t-iphones-parts",
+    "nombre": "iPhones For Parts (Liquidación)",
+    "url": "https://www.ebay.com/sch/m.html?_nkw=iphone+13+for+parts+untested&_sop=1",
+    "tier": "C",
+    "precioMaximoUSD": 80,
+    "categoria": "Smartphones",
+    "activa": true,
+    "frecuenciaHoras": 48,
+    "bloqueaCourier": true
+  }
+]

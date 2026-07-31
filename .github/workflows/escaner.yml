@@ -1,0 +1,43 @@
+name: "FlipTrack — Escáner Automático de Tiendas"
+
+# Ejecuta el escáner de tiendas (Firecrawl + NVIDIA NIM + Telegram) cada 6 horas.
+# También se puede disparar manualmente desde la pestaña "Actions".
+#
+# Configura estos SECRETS en GitHub (Settings → Secrets and variables → Actions):
+#   FIRECRAWL_API_KEY
+#   NVIDIA_API_KEY
+#   TELEGRAM_BOT_TOKEN      (opcional — alertas)
+#   TELEGRAM_CHAT_ID        (opcional — alertas)
+
+on:
+  schedule:
+    # Cada 6 horas en punto (UTC)
+    - cron: "0 */6 * * *"
+  workflow_dispatch: # botón "Run workflow" manual
+
+jobs:
+  escaner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout del repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # El script scripts/escaner.mjs es 100% standalone (usa fetch nativo de Node,
+      # no requiere npm install). npm ci solo para garantizar el entorno.
+      - name: Instalar dependencias (rápido)
+        run: npm ci --ignore-scripts || npm install --ignore-scripts
+
+      - name: Ejecutar escáner de tiendas
+        run: node scripts/escaner.mjs --max-items 10
+        env:
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MAX_ITEMS: "10"

@@ -1,0 +1,24 @@
+{
+  "name": "FlipTrack Vzla — Sistema de Flipping con IA",
+  "short_name": "FlipTrack",
+  "description": "Analiza productos de eBay con IA FlipMaster, importa vía casillero Miami y revende con ganancia en Venezuela.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#dbdad7",
+  "theme_color": "#121212",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

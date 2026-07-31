@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 60
+    },
+    "api/cron-escaner.ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    { "path": "/api/cron-escaner", "schedule": "0 */6 * * *" }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
