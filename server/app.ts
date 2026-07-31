@@ -273,7 +273,7 @@ app.post("/api/analyze", async (req, res) => {
       minCourierFee = 25.0, // USD (mínimo por paquete < 3 lb)
       estimatedWeight = 3.5, // lbs
       exchangeRate = 84.80,
-      modelName = "gemini-3.6-flash",
+      modelName = "deepseek-ai/deepseek-v4-flash",
       temperature = 0.3,
     } = req.body;
 
@@ -407,14 +407,14 @@ Por favor analiza el siguiente producto para FlipTrack:
 ${scrapedInfoSnippet}
 `;
 
-    // Check if user selected NVIDIA NIM (DeepSeek) Model
-    const isNvidiaModel =
-      modelName.includes("nvidia") ||
-      modelName.includes("deepseek") ||
-      modelName === "nvidia-nim-deepseek";
+    // Proveedor por defecto: NVIDIA NIM (DeepSeek). Solo se usa Gemini si el
+    // usuario elige explícitamente un modelo "gemini-*" en Ajustes.
+    // Guard de servidor: aunque el frontend mande un modelo gemini-*, sin
+    // GEMINI_API_KEY en el servidor SIEMPRE se usa DeepSeek (NVIDIA NIM).
+    const wantsGemini = modelName.startsWith("gemini") && !!process.env.GEMINI_API_KEY;
+    const nvidiaKey = req.body.nvidiaApiKey || process.env.NVIDIA_API_KEY || "";
 
-    if (isNvidiaModel) {
-      const nvidiaKey = req.body.nvidiaApiKey || process.env.NVIDIA_API_KEY || "";
+    if (!wantsGemini) {
       if (!nvidiaKey) {
         return res.status(400).json({
           success: false,
@@ -478,10 +478,13 @@ ${scrapedInfoSnippet}
         }
       }
 
-      console.warn("[FlipMaster AI] NVIDIA DeepSeek no devolvió respuesta estructurada. Reintentando con Gemini...");
+      console.warn("[FlipMaster AI] NVIDIA DeepSeek no devolvió respuesta estructurada.");
+      // DeepSeek es el proveedor por defecto: si falla, no caer silenciosamente a Gemini.
+      throw new Error("NVIDIA NIM (DeepSeek) no devolvió una respuesta estructurada. Revisa la API key (nvapi-...) en Ajustes o la env var NVIDIA_API_KEY.");
     }
 
-    // Execute with automatic retry and model fallbacks for 503/429 high demand & rate limits
+    // Ruta Gemini — SOLO cuando el usuario eligió explícitamente un modelo "gemini-*".
+    // Ejecuta con retry automático y fallback de modelos para 503/429.
     const modelsToTry = [modelName, "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"].filter(
       (m, idx, arr) => m && arr.indexOf(m) === idx
     );
@@ -547,9 +550,9 @@ ${scrapedInfoSnippet}
 
     let userMessage = error.message || "Error al procesar el análisis con FlipMaster AI.";
     if (is503) {
-      userMessage = "Los servidores de la IA de Google están experimentando alta demanda temporal (Error 503). Por favor intenta de nuevo en unos segundos.";
+      userMessage = "El proveedor de IA (DeepSeek/NVIDIA) está experimentando alta demanda temporal (Error 503). Por favor intenta de nuevo en unos segundos.";
     } else if (is429) {
-      userMessage = "Se ha alcanzado el límite de tasa/cuota de la API de Gemini (Error 429). Espera unos segundos e intenta nuevamente.";
+      userMessage = "Se ha alcanzado el límite de tasa/cuota del proveedor de IA (Error 429). Espera unos segundos e intenta nuevamente.";
     }
 
     return res.status(is503 ? 503 : is429 ? 429 : 500).json({

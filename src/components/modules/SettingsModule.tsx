@@ -68,7 +68,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
       const res = await fetch("/api/test-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: nvidiaApiKey.trim() || undefined, modelName: model.includes("deepseek") ? "deepseek-ai/deepseek-v4-flash" : model }),
+        body: JSON.stringify({ apiKey: nvidiaApiKey.trim() || undefined, modelName: "deepseek-ai/deepseek-v4-flash" }),
       });
       const json = await res.json();
       setTestResult({ ok: json.success, message: json.error || json.message || "Respuesta inesperada." });
@@ -338,8 +338,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 <option value="nvidia-nim-deepseek">NVIDIA NIM (DeepSeek) — Análisis Forense Recomendado</option>
                 <option value="deepseek-ai/deepseek-v4-flash">NVIDIA DeepSeek-V4 Flash (Alta Velocidad)</option>
                 <option value="deepseek-ai/deepseek-v4-pro">NVIDIA DeepSeek-V4 Pro (Razonamiento Complejo)</option>
-                <option value="gemini-3.6-flash">Google Gemini 3.6 Flash (Respaldo)</option>
-                <option value="gemini-3.1-flash-lite">Google Gemini 3.1 Flash Lite</option>
+
               </select>
             </div>
 

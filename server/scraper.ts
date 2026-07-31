@@ -1,5 +1,4 @@
 import * as cheerio from "cheerio";
-import { GoogleGenAI } from "@google/genai";
 
 export interface StoreItemRaw {
   titulo: string;
@@ -235,76 +234,74 @@ function inferWeightFromTitle(title: string): number {
 }
 
 /**
- * Helper to call Gemini models with retries and fallback models for 503/429 transient errors
+ * Helper to call NVIDIA NIM (DeepSeek) models with retries and fallback models
  */
-async function callGeminiScraperWithFallback(
-  ai: GoogleGenAI,
-  cleanUrl: string,
-  itemId?: string,
-  prompt?: string
+async function callNvidiaScraperWithFallback(
+  nvidiaKey: string,
+  prompt: string
 ): Promise<string> {
-  const modelsToTry = ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  const modelsToTry = ["deepseek-ai/deepseek-v4-flash", "deepseek-ai/deepseek-v4-pro"];
   let lastError: any = null;
 
   for (const model of modelsToTry) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: prompt!,
-          config: {
-            tools: attempt === 0 ? [{ googleSearch: {} }] : undefined,
-            temperature: 0.1,
+        const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${nvidiaKey.trim()}`,
           },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.1,
+            max_tokens: 1024,
+          }),
+          signal: AbortSignal.timeout(30000),
         });
-        if (response && response.text) return response.text;
+        if (res.ok) {
+          const j = await res.json();
+          const text = j?.choices?.[0]?.message?.content || "";
+          if (text) return text;
+        } else {
+          const body = await res.text();
+          console.warn(`[Scraper NVIDIA] Model ${model} HTTP ${res.status}: ${body.slice(0, 120)}`);
+        }
       } catch (err: any) {
         lastError = err;
-        const errMsg = String(err.message || err);
-        console.warn(`[Scraper Gemini Call] Model ${model} attempt ${attempt + 1} failed: ${errMsg.slice(0, 150)}`);
-        
-        // Sleep before retry on 503 / 429 / UNAVAILABLE
-        if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("429")) {
-          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
-        } else {
-          break; // Try next model if non-retriable or missing feature
-        }
+        console.warn(
+          `[Scraper NVIDIA] Model ${model} attempt ${attempt + 1} error: ${String(err.message || err).slice(0, 150)}`
+        );
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
       }
     }
   }
 
-  console.warn("[Scraper Gemini] All AI models unavailable or rate limited. Falling back to HTTP DOM scraper.");
+  console.warn("[Scraper NVIDIA] All DeepSeek models unavailable. Falling back to HTTP DOM scraper.");
   return "";
 }
 
 /**
- * Extracts product details using Gemini LLM with Google Search Grounding tool
+ * Extracts product details using NVIDIA NIM (DeepSeek) — no requiere GEMINI_API_KEY
  */
-export async function scrapeWithGeminiModel(
+export async function scrapeWithNvidiaModel(
   targetUrl: string,
   itemId?: string
 ): Promise<Partial<ScrapedProductData>> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.NVIDIA_API_KEY;
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY no configurada.");
+    return {};
   }
 
   const cleanUrl = cleanUrlPath(targetUrl);
-  const ai = new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        "User-Agent": "aistudio-build",
-      },
-    },
-  });
 
   const prompt = `Actúa como un e-commerce web scraper forense de alta precisión especializado en eBay, Amazon y Swappa.
-Busca en Google Search y extrae la información REAL del anuncio de producto en la siguiente URL de eBay o ID de artículo:
+Extrae la información REAL del anuncio de producto en la siguiente URL de eBay o ID de artículo:
 URL de Producto: ${cleanUrl}
 ${itemId ? `ID de Artículo eBay: ${itemId}` : ""}
 
-Asegúrate de buscar la publicación exacta en eBay o la caché de Google y extraer con máxima precisión:
+Extrae con máxima precisión:
 1. "title": Título exacto de la publicación
 2. "listedPrice" / "buy_it_now_price": Precio de compra directa o Puja Actual en USD. NÚMERO DECIMAL OBLIGATORIO (ej. 145.00 o 210.00). Si dice $145.00 escribe 145.00.
 3. "domesticShippingCostUSD" / "shipping_cost": Costo de envío nacional dentro de EE.UU. hacia Miami en USD (0.00 si indica 'Free Shipping' / Gratis, o número decimal como 12.50).
@@ -329,11 +326,11 @@ DEBES responder ÚNICAMENTE en formato JSON válido con la siguiente estructura 
 }`;
 
   try {
-    const responseText = await callGeminiScraperWithFallback(ai, cleanUrl, itemId, prompt);
+    const responseText = await callNvidiaScraperWithFallback(apiKey, prompt);
     const parsed = extractJsonFromText(responseText);
 
     if (!parsed) {
-      console.warn("Gemini scraper response could not be parsed as JSON:", responseText.slice(0, 200));
+      console.warn("NVIDIA scraper response could not be parsed as JSON:", responseText.slice(0, 200));
       return {};
     }
 
@@ -357,10 +354,10 @@ DEBES responder ÚNICAMENTE en formato JSON válido con la siguiente estructura 
       description: parsed.description || "",
       imageUrl: parsed.imageUrl || "",
       specs: parsed.specs || {},
-      extractionMethod: "Gemini Model + Search Grounding",
+      extractionMethod: "NVIDIA NIM (DeepSeek) Scraper",
     };
   } catch (err: any) {
-    console.error("Error in scrapeWithGeminiModel:", err.message || err);
+    console.error("Error in scrapeWithNvidiaModel:", err.message || err);
     return {};
   }
 }
@@ -516,36 +513,36 @@ export async function scrapeEcommerceUrl(targetUrl: string): Promise<ScrapedProd
       }
     }
   } catch (err) {
-    console.warn("Direct HTTP fetch blocked or timed out, switching to Gemini model extraction...");
+    console.warn("Direct HTTP fetch blocked or timed out, switching to DeepSeek model extraction...");
   }
 
-  // STRATEGY 3: Gemini Model + Google Search Grounding Extraction
+  // STRATEGY 3: NVIDIA NIM (DeepSeek) Extraction
   // Run if title or listedPrice are missing or 0
   if (!result.title || result.listedPrice === 0 || !result.description || !result.estimatedWeight) {
     try {
-      const geminiScraped = await scrapeWithGeminiModel(cleanTargetUrl, result.itemId);
-      if (geminiScraped.title) {
-        if (!result.title) result.title = geminiScraped.title;
-        if ((!result.listedPrice || result.listedPrice === 0) && geminiScraped.listedPrice) {
-          result.listedPrice = geminiScraped.listedPrice;
+      const nvScraped = await scrapeWithNvidiaModel(cleanTargetUrl, result.itemId);
+      if (nvScraped.title) {
+        if (!result.title) result.title = nvScraped.title;
+        if ((!result.listedPrice || result.listedPrice === 0) && nvScraped.listedPrice) {
+          result.listedPrice = nvScraped.listedPrice;
         }
-        if (geminiScraped.domesticShippingCostUSD !== undefined) {
-          result.domesticShippingCostUSD = geminiScraped.domesticShippingCostUSD;
+        if (nvScraped.domesticShippingCostUSD !== undefined) {
+          result.domesticShippingCostUSD = nvScraped.domesticShippingCostUSD;
         }
-        if (geminiScraped.estimatedWeight) {
-          result.estimatedWeight = geminiScraped.estimatedWeight;
+        if (nvScraped.estimatedWeight) {
+          result.estimatedWeight = nvScraped.estimatedWeight;
         }
-        if (!result.description && geminiScraped.description) {
-          result.description = geminiScraped.description;
+        if (!result.description && nvScraped.description) {
+          result.description = nvScraped.description;
         }
-        if (!result.seller && geminiScraped.seller) result.seller = geminiScraped.seller;
-        if (!result.imageUrl && geminiScraped.imageUrl) result.imageUrl = geminiScraped.imageUrl;
-        if (geminiScraped.condition) result.condition = geminiScraped.condition;
-        if (geminiScraped.specs) result.specs = geminiScraped.specs;
-        result.extractionMethod = "Gemini Model AI Scraper";
+        if (!result.seller && nvScraped.seller) result.seller = nvScraped.seller;
+        if (!result.imageUrl && nvScraped.imageUrl) result.imageUrl = nvScraped.imageUrl;
+        if (nvScraped.condition) result.condition = nvScraped.condition;
+        if (nvScraped.specs) result.specs = nvScraped.specs;
+        result.extractionMethod = "NVIDIA NIM (DeepSeek) Scraper";
       }
     } catch (e) {
-      console.error("Gemini Model scraper fallback error:", e);
+      console.error("NVIDIA scraper fallback error:", e);
     }
   }
 
