@@ -1,7 +1,7 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { scrapeEcommerceUrl, extractJsonFromText, scrapeStoreItems } from "./scraper";
+import { scrapeEcommerceUrl, extractJsonFromText, scrapeStoreItems } from "./scraper.js";
 
 dotenv.config();
 

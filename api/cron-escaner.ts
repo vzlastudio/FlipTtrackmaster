@@ -13,7 +13,7 @@
  * El schedule se define en vercel.json → "crons".
  */
 import { escanearTodas } from "../scripts/escaner.mjs";
-import tiendas from "../scripts/tiendas.json";
+import tiendas from "../scripts/tiendas.json" with { type: "json" };
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
