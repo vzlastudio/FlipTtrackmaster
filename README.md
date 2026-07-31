@@ -32,7 +32,7 @@ npm run dev            # http://localhost:3000
 | `GEMINI_API_KEY` | Fallback de análisis (opcional) |
 | `FIRECRAWL_API_KEY` | Scraper de tiendas eBay (esquiva CAPTCHA) — opcional |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Alertas de escaneo — opcional |
-| `CRON_SECRET` | Protege el endpoint de Vercel Cron — opcional |
+| `CRON_SECRET` | **Requerido** para Vercel Cron — sin él el endpoint devuelve 503 |
 
 ## 🤖 Automatización — Escáner Automático de Tiendas
 
@@ -72,7 +72,7 @@ systemd timers (Linux) con la misma idea.
 ### Opción B — Vercel Cron (endpoint en producción)
 
 1. El endpoint `api/cron-escaner.ts` ejecuta el mismo motor cuando Vercel Cron lo invoca.
-2. El schedule ya está en `vercel.json` → `crons` (cada 6 horas).
+2. El schedule ya está en `vercel.json` → `crons` (**1 vez al día** a las 06:00 UTC — el plan Hobby solo permite crons diarios; en Pro puedes usar `0 */6 * * *` para cada 6 horas).
 3. Configura en **Vercel → Project → Settings → Environment Variables**: `CRON_SECRET`,
    `FIRECRAWL_API_KEY`, `NVIDIA_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
 4. Vercel firma el request con `Authorization: Bearer $CRON_SECRET` — el endpoint lo valida.

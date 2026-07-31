@@ -11,7 +11,10 @@
     }
   },
   "crons": [
-    { "path": "/api/cron-escaner", "schedule": "0 */6 * * *" }
+    {
+      "path": "/api/cron-escaner",
+      "schedule": "0 6 * * *"
+    }
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
