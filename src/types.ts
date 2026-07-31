@@ -142,10 +142,12 @@ export interface PurchaseInfo {
 export interface LogisticsInfo {
   courierName?: string; // e.g. Liberty Express
   casilleroCode?: string; // e.g. LIB-MIA-88492
-  trackingNumber: string;
+  trackingNumber?: string;
   weightLbs: number;
   freightCostUSD: number;
   currentLeg: 1 | 2 | 3 | 4; // 1: Vendedor->Miami, 2: Miami->Courier, 3: Courier->Vzla, 4: Vzla->Taller/User
+  trackingUS?: string; // Tracking domestico EE.UU. (FedEx/UPS/USPS) - Tramo 1
+  statusNote?: string; // Nota libre del estado actual
   departureDateUS?: string;
   arrivedMiamiDate?: string;
   arrivedVzlaDate?: string;

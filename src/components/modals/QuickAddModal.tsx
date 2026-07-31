@@ -101,7 +101,6 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         currentLeg: 1,
         weightLbs: 3.0,
         freightCostUSD: 13.5,
-        trackingNumber: `LIB-${Math.floor(100000 + Math.random() * 900000)}-VZ`,
         carrierStatusText: "Comprado y registrado vía QuickAdd",
       },
       timeline: [

@@ -209,8 +209,12 @@ export const FlipDetailModal: React.FC<FlipDetailModalProps> = ({ flip, settings
             <div className="space-y-3 text-xs">
               <div className="bg-white p-4 rounded-lg border border-[#e6e4e0] space-y-2">
                 <div className="flex justify-between">
+                  <span className="text-[#616161]">Tracking US (FedEx/UPS):</span>
+                  <span className="font-mono text-[#121212] font-bold">{flip.logistics?.trackingUS || "—"}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-[#616161]">Guía Liberty Express:</span>
-                  <span className="font-mono text-[#121212] font-bold">{flip.logistics?.trackingNumber || "N/A"}</span>
+                  <span className="font-mono text-[#121212] font-bold">{flip.logistics?.trackingNumber || "Pendiente — llega a Miami"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#616161]">Peso Registrado:</span>
@@ -220,6 +224,12 @@ export const FlipDetailModal: React.FC<FlipDetailModalProps> = ({ flip, settings
                   <span className="text-[#616161]">Estado Tramo:</span>
                   <span className="text-[#121212] font-medium">{flip.logistics?.carrierStatusText}</span>
                 </div>
+                {flip.logistics?.statusNote && (
+                  <div className="flex justify-between">
+                    <span className="text-[#616161]">Nota / Alerta:</span>
+                    <span className="text-[#121212] font-medium max-w-[220px] text-right">{flip.logistics.statusNote}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

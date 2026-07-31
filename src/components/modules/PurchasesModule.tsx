@@ -65,7 +65,7 @@ export const PurchasesModule: React.FC<PurchasesModuleProps> = ({
         currentLeg: 1,
         weightLbs: parseFloat(mPeso) || 3.5,
         freightCostUSD: 20,
-        trackingNumber: mTracking.trim() || `LIB-${Math.floor(100000 + Math.random() * 900000)}-VZ`,
+        trackingUS: mTracking.trim(),
         carrierStatusText: "Pendiente de envío hacia casillero Miami",
       },
       timeline: [

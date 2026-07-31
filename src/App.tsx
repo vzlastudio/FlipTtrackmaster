@@ -163,7 +163,7 @@ export default function App() {
                   currentLeg: 1,
                   weightLbs: f.analysis?.shippingToVenezuela.estimatedWeightLbs || 3.5,
                   freightCostUSD: f.analysis?.shippingToVenezuela.totalLandedShippingUSD || 20,
-                  trackingNumber: `LIB-${Math.floor(100000 + Math.random() * 900000)}-VZ`,
+                  trackingUS: `1Z${Math.floor(100000000000000 + Math.random() * 899999999999999)}`,
                   carrierStatusText: "Vendedor envió paquete hacia Casillero Miami",
                 },
                 timeline: [
@@ -211,7 +211,7 @@ export default function App() {
           currentLeg: 1,
           weightLbs: analysis.shippingToVenezuela.estimatedWeightLbs,
           freightCostUSD: analysis.shippingToVenezuela.totalLandedShippingUSD,
-          trackingNumber: `LIB-${Math.floor(100000 + Math.random() * 900000)}-VZ`,
+          trackingUS: `1Z${Math.floor(100000000000000 + Math.random() * 899999999999999)}`,
           carrierStatusText: "En camino a Casillero Doral Miami",
         },
         timeline: [
@@ -241,8 +241,14 @@ export default function App() {
   const handleUpdateLogisticsStatus = (
     flipId: string,
     leg: 1 | 2 | 3 | 4,
-    statusText: string,
-    trackingNum?: string
+    patch: {
+      statusText?: string;
+      trackingUS?: string;
+      trackingNumber?: string;
+      arrivedMiamiDate?: string;
+      arrivedVzlaDate?: string;
+      warehouseLocationVzla?: string;
+    } = {}
   ) => {
     setFlips(
       flips.map((f) => {
@@ -253,25 +259,34 @@ export default function App() {
         if (leg === 3) nextStatus = "international_freight";
         if (leg === 4) nextStatus = "received_vzla";
 
+        const prev = f.logistics;
+        const effectiveLeg = Math.max(leg, prev?.currentLeg || 1);
+
         return {
           ...f,
           status: nextStatus,
           updatedAt: new Date().toISOString(),
           logistics: {
-            currentLeg: leg,
-            weightLbs: f.logistics?.weightLbs || 3.5,
-            freightCostUSD: f.logistics?.freightCostUSD || 20,
-            trackingNumber: trackingNum || f.logistics?.trackingNumber || "LIB-PENDING",
-            carrierStatusText: statusText || "En tránsito normal",
+            ...prev,
+            currentLeg: effectiveLeg,
+            weightLbs: prev?.weightLbs || 3.5,
+            freightCostUSD: prev?.freightCostUSD || 20,
+            trackingUS: patch.trackingUS !== undefined ? patch.trackingUS : prev?.trackingUS,
+            trackingNumber: patch.trackingNumber !== undefined ? patch.trackingNumber : prev?.trackingNumber || "",
+            carrierStatusText: patch.statusText || prev?.carrierStatusText || "En tránsito normal",
+            statusNote: patch.statusText !== undefined ? patch.statusText : prev?.statusNote,
+            arrivedMiamiDate: patch.arrivedMiamiDate || prev?.arrivedMiamiDate,
+            arrivedVzlaDate: patch.arrivedVzlaDate || prev?.arrivedVzlaDate,
+            warehouseLocationVzla: patch.warehouseLocationVzla || prev?.warehouseLocationVzla,
           },
           timeline: [
             ...f.timeline,
             {
               id: `TL-${Date.now()}`,
               timestamp: new Date().toISOString(),
-              actor: "Liberty Express",
-              title: `Actualización Tramo ${leg}`,
-              description: statusText || "Avanzó de etapa logística.",
+              actor: "Usuario",
+              title: `Actualización Tramo ${effectiveLeg}`,
+              description: patch.statusText || `Avanzó al tramo ${effectiveLeg}.`,
               stage: "Logística",
             },
           ],
