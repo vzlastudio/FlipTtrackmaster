@@ -33,7 +33,9 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const maxItems = parseInt(process.env.CRON_MAX_ITEMS || "3", 10);
+    // Default 1 item/tienda: en Hobby el cron maxDuration es 60s y Firecrawl tarda
+    // ~15-20s por tienda. Para escaneos profundos usa GitHub Actions (cada 6h).
+    const maxItems = parseInt(process.env.CRON_MAX_ITEMS || "1", 10);
     const reporte = await escanearTodas({
       tiendas: tiendas as any[],
       maxItems,

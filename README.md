@@ -78,7 +78,7 @@ systemd timers (Linux) con la misma idea.
 4. Vercel firma el request con `Authorization: Bearer $CRON_SECRET` — el endpoint lo valida.
 
 > ⚠️ El cron de Vercel tiene límite de duración (~60s máx en planes básicos). El endpoint usa
-> `CRON_MAX_ITEMS=3` por defecto para caber en el tiempo. Para escaneos más profundos usa
+> `CRON_MAX_ITEMS=1` por defecto para caber en el tiempo (escaneo superficial). Para escaneos más profundos usa
 > la **Opción A** (local) o la **Opción C** (GitHub Actions).
 
 ### Opción C — GitHub Actions (schedule + secrets)
