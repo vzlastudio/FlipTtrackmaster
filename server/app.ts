@@ -321,6 +321,16 @@ REGLA DE ORO:
 Nunca evalúas solo el precio del anuncio. Evalúas el COSTO TOTAL DEL PROYECTO:
 puja/compra ('buy_it_now_price') + envío interno US ('shipping_cost') + courier a Venezuela ('item_weight' x tarifa) + repuestos + accesorios faltantes + herramientas + riesgo + margen.
 
+REGLA ESTRICTA DE COMPATIBILIDAD DE RED (APLICA A TODO SMARTPHONE/TELÉFONO):
+1. Descartas automáticamente cualquier teléfono que:
+   a) Esté bloqueado a una operadora o red específica (carrier lock, "locked to AT&T", "Verizon locked", bloqueo de red, "SOLO funciona con...", etc.).
+   b) No indique explícitamente de forma TEXTUAL "Factory Unlocked", "Network Unlocked" o "Unlocked" (o equivalente en español: "desbloqueado de fábrica", "liberado", "sin bloqueo de red").
+2. Interpretación estricta:
+   - NUNCA infieres que un teléfono está desbloqueado si la publicación no lo afirma textualmente.
+   - La falta de confirmación explícita de desbloqueo universal equivale a equipo NO APTO.
+   - Cualquier mención de bloqueo de operadora o compatibilidad restringida a una sola red implica DESCARTE INMEDIATO.
+3. SALIDA OBLIGATORIA: si se cumple CUALQUIERA de las condiciones anteriores, el veredicto final (finalVerdict.decision) debe ser EXACTAMENTE "NO VALE LA PENA", con riskLevel "Alto" o "Crítico", la señal "locked"/"carrier lock"/"sin confirmación de desbloqueo" en riskSignals, y una explicación clara en summaryExplanation.
+
 INSTRUCCIONES CLAVE DE EXTRACCIÓN Y CÁLCULO:
 1. Extrae y valida 'buy_it_now_price' (precio de compra directa o puja) -> mapea a flipMath.basePriceUSD.
 2. Extrae y valida 'shipping_cost' (flete doméstico en EE.UU. a Miami) -> mapea a shippingToVenezuela.internalUSFreightUSD.
@@ -389,6 +399,7 @@ FORMATO JSON REQUERIDO:
 
 Instrucciones estrictas:
 - Respeta 'Untested' = roto hasta demostrar lo contrario.
+- Smartphones: aplica SIEMPRE la REGLA ESTRICTA DE COMPATIBILIDAD DE RED — si el anuncio no afirma textualmente "Factory Unlocked"/"Network Unlocked"/"Unlocked" (o equivalente en español) o menciona bloqueo de operadora, la decisión final es EXACTAMENTE "NO VALE LA PENA".
 - Usa la tasa del dólar entregada ($1 USD = ${exchangeRate} VES).
 - Tarifa courier base: $3.10/lb (mínimo $25; en SOBRE $17-20; se cobra el MAYOR entre peso real y volumétrico; + combustible $0.75/lb + gastos op $0.75/lb + gestión aduanal $1 + seguro 5% FOB + IVA 16%).
 - La regla del flip exitoso es: Costo Total Puesto en Venezuela <= 50-60% del precio de reventa local y ROI >= 30-40%.
