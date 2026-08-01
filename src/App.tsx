@@ -15,6 +15,7 @@ import { usePersistentState, usePersistentSingle } from "./hooks/usePersistentSt
 import { seedInitialDataIfEmpty, registerEvent } from "./lib/db";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
+import { LandingPage } from "./components/LandingPage";
 
 // Modules
 import { DashboardModule } from "./components/modules/DashboardModule";
@@ -40,6 +41,28 @@ import { TiendasModule } from "./components/modules/TiendasModule";
 import { FlipDetailModal } from "./components/modals/FlipDetailModal";
 
 export default function App() {
+  // ── Routing: / = Landing pública · /app = Sistema operativo ────────────
+  const [route, setRoute] = useState<"landing" | "app">(() => {
+    if (typeof window !== "undefined") {
+      return window.location.pathname.startsWith("/app") ? "app" : "landing";
+    }
+    return "app";
+  });
+
+  useEffect(() => {
+    const onPop = () => {
+      setRoute(window.location.pathname.startsWith("/app") ? "app" : "landing");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const goToApp = () => {
+    window.history.pushState({}, "", "/app");
+    setRoute("app");
+    window.scrollTo(0, 0);
+  };
+
   const [activeModule, setActiveModule] = useState<FlipModule>("dashboard");
   const [flips, setFlips] = usePersistentState<FlipItem>("flips", initialFlips);
   const [transactions, setTransactions] = usePersistentState<Transaction>("transactions", initialTransactions);
@@ -515,6 +538,11 @@ export default function App() {
     inventory: flips.filter((f) => f.status === "ready_for_sale").length,
     sales: flips.filter((f) => f.status === "listed").length,
   };
+
+  // ── Si la ruta es la raíz (landing), mostramos la página de marketing ──
+  if (route === "landing") {
+    return <LandingPage onEnterApp={goToApp} />;
+  }
 
   return (
     <div className="h-screen bg-[#dbdad7] text-[#121212] flex flex-col font-sans selection:bg-[#121212] selection:text-white">
