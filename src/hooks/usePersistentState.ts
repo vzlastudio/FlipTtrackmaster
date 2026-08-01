@@ -54,7 +54,7 @@ export function usePersistentState<T extends { id: string }>(
   return [data, setData];
 }
 
-export function usePersistentSingle<T extends { id: string }>(
+export function usePersistentSingle<T extends object>(
   storeName: StoreName,
   id: string,
   initialValue: T
@@ -81,7 +81,8 @@ export function usePersistentSingle<T extends { id: string }>(
 
   const update = useCallback(
     async (val: Partial<T> | T) => {
-      const newData = { ...data, ...val } as T;
+      // El store usa keyPath "id": se fuerza el id singleton al guardar.
+      const newData = { ...data, ...val } as T & { id: string };
       newData.id = id;
       setData(newData);
       if (loadedRef.current) {

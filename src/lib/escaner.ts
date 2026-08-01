@@ -146,7 +146,11 @@ export async function escanearTienda(
     const storeRes = await fetch("/api/scrape-store", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: tienda.url }),
+      body: JSON.stringify({
+        url: tienda.url,
+        // La key de Firecrawl se envía al servidor (con prioridad sobre la env var)
+        firecrawlApiKey: settings.firecrawlApiKey || undefined,
+      }),
     });
     const storeJson = await storeRes.json();
     if (!storeJson.success) {

@@ -262,12 +262,12 @@ app.get("/api/exchange-rate", async (_req, res) => {
 // Live E-commerce Web Scraper Endpoint (eBay, Swappa, Mercadolibre, Amazon)
 app.post("/api/scrape-url", async (req, res) => {
   try {
-    const { url } = req.body;
+    const { url, firecrawlApiKey } = req.body;
     if (!url || typeof url !== "string") {
       return res.status(400).json({ error: "Ingresa una URL válida de la publicación." });
     }
 
-    const scrapedData = await scrapeEcommerceUrl(url);
+    const scrapedData = await scrapeEcommerceUrl(url, firecrawlApiKey);
     return res.json({ success: true, data: scrapedData });
   } catch (error: any) {
     console.error("Scraper Endpoint Error:", error);
@@ -278,11 +278,23 @@ app.post("/api/scrape-url", async (req, res) => {
   }
 });
 
+// Detecta keys placeholder/fake del frontend (ej. "nvapi...i3", "MY_NVIDIA_API_KEY")
+// para no anular la env var real NVIDIA_API_KEY del servidor.
+const FAKE_NVIDIA_KEY = /^(nvapi\.\.\.|MY_NVIDIA_API_KEY)/i;
+
+function resolveNvidiaKey(clientKey?: string): string {
+  const trimmed = String(clientKey || "").trim();
+  if (!trimmed || FAKE_NVIDIA_KEY.test(trimmed)) {
+    return process.env.NVIDIA_API_KEY || "";
+  }
+  return trimmed;
+}
+
 // Test AI Connection Endpoint (NVIDIA NIM — DeepSeek)
 app.post("/api/test-ai", async (req, res) => {
   try {
     const { apiKey, modelName = "deepseek-ai/deepseek-v4-flash" } = req.body;
-    const key = apiKey || process.env.NVIDIA_API_KEY || "";
+    const key = resolveNvidiaKey(apiKey);
     if (!key) {
       return res.status(400).json({ success: false, error: "No hay API key de NVIDIA configurada. Agrega tu nvapi-..." });
     }
@@ -347,11 +359,12 @@ app.post("/api/telegram/test", async (req, res) => {
 // Scrape Store / Seller Search Endpoint (Firecrawl — esquiva CAPTCHA de eBay)
 app.post("/api/scrape-store", async (req, res) => {
   try {
-    const { url } = req.body;
+    const { url, firecrawlApiKey } = req.body;
     if (!url || typeof url !== "string") {
       return res.status(400).json({ success: false, error: "Ingresa la URL de la tienda o vendedor de eBay." });
     }
-    const items = await scrapeStoreItems(url);
+    // La key de Firecrawl se acepta del frontend (Ajustes) con prioridad sobre la env var
+    const items = await scrapeStoreItems(url, firecrawlApiKey);
     return res.json({ success: true, items });
   } catch (error: any) {
     console.error("Store Scraper Error:", error);
@@ -537,7 +550,8 @@ ${scrapedInfoSnippet}
     // Guard de servidor: aunque el frontend mande un modelo gemini-*, sin
     // GEMINI_API_KEY en el servidor SIEMPRE se usa DeepSeek (NVIDIA NIM).
     const wantsGemini = modelName.startsWith("gemini") && !!process.env.GEMINI_API_KEY;
-    const nvidiaKey = req.body.nvidiaApiKey || process.env.NVIDIA_API_KEY || "";
+    // Guard: si el frontend manda una key fake/placeholder, se usa la env var real.
+    const nvidiaKey = resolveNvidiaKey(req.body.nvidiaApiKey);
 
     // Texto REAL del anuncio (título + descripción + datos extraídos en vivo) para
     // el guard determinista de bloqueo de red / iCloud.
@@ -558,39 +572,53 @@ ${scrapedInfoSnippet}
 
       const nvModelsToTry = [primaryNvModel, "deepseek-ai/deepseek-v4-flash", "deepseek-ai/deepseek-v4-pro"];
       let nvRawText = "";
+      let lastNvStatus = 0; // último HTTP status de NVIDIA (para mapear 529 al catch final)
 
       for (const mToTry of nvModelsToTry) {
         try {
           console.log(`[FlipMaster AI] Invocando NVIDIA NIM (DeepSeek) (${mToTry})...`);
-          const nvRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${nvidiaKey.trim()}`,
-            },
-            body: JSON.stringify({
-              model: mToTry,
-              messages: [
-                { role: "system", content: systemInstruction },
-                {
-                  role: "user",
-                  content:
-                    userPrompt +
-                    "\n\nResponde ÚNICAMENTE con el objeto JSON válido según la estructura FlipMasterAnalysis requerida sin texto introductorio ni bloques extra.",
-                },
-              ],
-              temperature: Number(temperature) || 0.2,
-              max_tokens: 4096,
-            }),
-          });
+          // Retry + backoff ante HTTP 529 (sobrecarga temporal de NVIDIA)
+          let nvRes: Response | null = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${nvidiaKey.trim()}`,
+              },
+              body: JSON.stringify({
+                model: mToTry,
+                messages: [
+                  { role: "system", content: systemInstruction },
+                  {
+                    role: "user",
+                    content:
+                      userPrompt +
+                      "\n\nResponde ÚNICAMENTE con el objeto JSON válido según la estructura FlipMasterAnalysis requerida sin texto introductorio ni bloques extra.",
+                  },
+                ],
+                temperature: Number(temperature) || 0.2,
+                max_tokens: 4096,
+              }),
+            });
+            if (res.status === 529 && attempt < 2) {
+              const waitMs = 1500 * (attempt + 1);
+              console.warn(`[NVIDIA NIM API] HTTP 529 sobrecarga — reintento ${attempt + 1}/3 en ${waitMs}ms`);
+              await new Promise((r) => setTimeout(r, waitMs));
+              continue;
+            }
+            nvRes = res;
+            break;
+          }
 
-          if (nvRes.ok) {
+          if (nvRes && nvRes.ok) {
             const nvJson = await nvRes.json();
             nvRawText = nvJson.choices?.[0]?.message?.content || "";
             if (nvRawText) break;
           } else {
-            const errBody = await nvRes.text();
-            console.warn(`[NVIDIA NIM API] Model ${mToTry} error (${nvRes.status}):`, errBody.slice(0, 150));
+            const errBody = nvRes ? await nvRes.text() : "";
+            if (nvRes) lastNvStatus = nvRes.status;
+            console.warn(`[NVIDIA NIM API] Model ${mToTry} error (${nvRes ? nvRes.status : "no response"}):`, errBody.slice(0, 150));
           }
         } catch (nvErr: any) {
           console.warn(`[NVIDIA NIM API] Fetch error for ${mToTry}:`, nvErr.message || nvErr);
@@ -610,6 +638,11 @@ ${scrapedInfoSnippet}
 
       console.warn("[FlipMaster AI] NVIDIA DeepSeek no devolvió respuesta estructurada.");
       // DeepSeek es el proveedor por defecto: si falla, no caer silenciosamente a Gemini.
+      // Si el último status fue 529 (sobrecarga), lanzamos un error que el catch final
+      // detecta con is529 para mostrar el mensaje claro de reintento.
+      if (lastNvStatus === 529) {
+        throw new Error("NVIDIA NIM Service temporarily overloaded (HTTP 529). Se reintentó 3 veces sin éxito.");
+      }
       throw new Error("NVIDIA NIM (DeepSeek) no devolvió una respuesta estructurada. Revisa la API key (nvapi-...) en Ajustes o la env var NVIDIA_API_KEY.");
     }
 
@@ -679,15 +712,18 @@ ${scrapedInfoSnippet}
     const errStr = String(error.message || error);
     const is503 = errStr.includes("503") || errStr.includes("UNAVAILABLE") || errStr.includes("high demand");
     const is429 = errStr.includes("429") || errStr.includes("quota") || errStr.includes("Quota");
+    const is529 = errStr.includes("529") || errStr.includes("overloaded") || errStr.includes("Service temporarily overloaded");
 
     let userMessage = error.message || "Error al procesar el análisis con FlipMaster AI.";
     if (is503) {
       userMessage = "El proveedor de IA (DeepSeek/NVIDIA) está experimentando alta demanda temporal (Error 503). Por favor intenta de nuevo en unos segundos.";
     } else if (is429) {
       userMessage = "Se ha alcanzado el límite de tasa/cuota del proveedor de IA (Error 429). Espera unos segundos e intenta nuevamente.";
+    } else if (is529) {
+      userMessage = "NVIDIA NIM está temporalmente sobrecargado (Error 529). Se reintentó automáticamente; espera unos segundos e intenta de nuevo.";
     }
 
-    return res.status(is503 ? 503 : is429 ? 429 : 500).json({
+    return res.status(is503 ? 503 : is429 ? 429 : is529 ? 529 : 500).json({
       success: false,
       error: userMessage,
     });

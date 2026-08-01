@@ -10,7 +10,7 @@ import {
   SaleInfo,
   PartOrder,
 } from "./types";
-import { initialFlips, initialTransactions, initialClients, initialDocuments, initialSettings, initialCouriers } from "./data/initialData";
+import { initialFlips, initialTransactions, initialClients, initialDocuments, initialSettings } from "./data/initialData";
 import { usePersistentState, usePersistentSingle } from "./hooks/usePersistentState";
 import { seedInitialDataIfEmpty, registerEvent } from "./lib/db";
 import { Navbar } from "./components/Navbar";
@@ -97,28 +97,16 @@ export default function App() {
     })();
   }, []);
 
-  const [settings, setSettings] = useState<AppSettings>({
-      paraleloRate: 84.80,
-      bcvRate: 72.45,
-      aiModel: "nvidia-nim-deepseek",
-      temperature: 0.2,
-      detailLevel: "standard",
-      defaultTargetROI: 35,
-      customInstructions: "Priorizar compras con margen >= $80 USD en consolas y laptops.",
-      dollarApiSource: "EnParaleloVzla",
-      nvidiaApiKey: "nvapi...i3",
-      activeCourierId: "liberty_express",
-      couriers: initialCouriers,
-    });
+  // Ajustes persistidos en IndexedDB (singleton "global") — las API keys y
+  // tasas sobreviven al recargar la página. Se siembran desde initialSettings.
+  const [settings, updateSettings] = usePersistentSingle<AppSettings>("settings", "global", initialSettings);
 
   // Handlers
   const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
-    setSettings((prev) => ({
-      ...prev,
-      ...newSettings,
-      paraleloRate: newSettings.paraleloRate !== undefined ? Number(Number(newSettings.paraleloRate).toFixed(2)) : prev.paraleloRate,
-      bcvRate: newSettings.bcvRate !== undefined ? Number(Number(newSettings.bcvRate).toFixed(2)) : prev.bcvRate,
-    }));
+    const patch: Partial<AppSettings> = { ...newSettings };
+    if (patch.paraleloRate !== undefined) patch.paraleloRate = Number(Number(patch.paraleloRate).toFixed(2));
+    if (patch.bcvRate !== undefined) patch.bcvRate = Number(Number(patch.bcvRate).toFixed(2));
+    updateSettings(patch);
   };
 
   const handleRefreshExchangeRates = async (silent = false) => {
@@ -128,11 +116,7 @@ export default function App() {
       if (json.success && json.bcv && json.paralelo) {
         const roundedBCV = Number(Number(json.bcv).toFixed(2));
         const roundedParalelo = Number(Number(json.paralelo).toFixed(2));
-        setSettings((prev) => ({
-          ...prev,
-          paraleloRate: roundedParalelo,
-          bcvRate: roundedBCV,
-        }));
+        updateSettings({ paraleloRate: roundedParalelo, bcvRate: roundedBCV });
         if (!silent) {
           alert(`Tasas sincronizadas con éxito:\n• Dólar BCV: VES ${roundedBCV.toFixed(2)}\n• Dólar Paralelo: VES ${roundedParalelo.toFixed(2)}`);
         }

@@ -12,9 +12,12 @@ export interface StoreItemRaw {
 /**
  * STRATEGY 0: Firecrawl — esquiva CAPTCHA de eBay (tiendas y búsquedas por vendedor).
  * Parsea el markdown devuelto: título **...**, precio $XX.XX, condición, vendedor.
+ *
+ * La key se acepta por parámetro (env desde Ajustes) con prioridad sobre la env var
+ * FIRECRAWL_API_KEY del servidor. Así el escaneo funciona aunque la env no esté configurada.
  */
-export async function scrapeWithFirecrawl(targetUrl: string): Promise<Partial<ScrapedProductData>> {
-  const apiKey = process.env.FIRECRAWL_API_KEY || "";
+export async function scrapeWithFirecrawl(targetUrl: string, firecrawlApiKey?: string): Promise<Partial<ScrapedProductData>> {
+  const apiKey = firecrawlApiKey?.trim() || process.env.FIRECRAWL_API_KEY || "";
   if (!apiKey) return {};
 
   try {
@@ -24,11 +27,13 @@ export async function scrapeWithFirecrawl(targetUrl: string): Promise<Partial<Sc
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
+      // NOTA: maxUrls NO es un parámetro válido de /v1/scrape (Firecrawl responde 400).
       body: JSON.stringify({ url: targetUrl, formats: ["markdown"], waitFor: 4000 }),
       signal: AbortSignal.timeout(30000),
     });
     if (!res.ok) {
-      console.warn(`[Firecrawl] HTTP ${res.status}`);
+      const detail = await res.text().catch(() => "");
+      console.warn(`[Firecrawl] HTTP ${res.status}: ${detail.slice(0, 200)}`);
       return {};
     }
 
@@ -66,12 +71,13 @@ export async function scrapeWithFirecrawl(targetUrl: string): Promise<Partial<Sc
 
 /**
  * Escanea una TIENDA o búsqueda por vendedor de eBay y devuelve items crudos.
- * Requiere FIRECRAWL_API_KEY en el servidor.
+ * La key se acepta por parámetro (enviada desde Ajustes en el frontend) con
+ * prioridad sobre la env var FIRECRAWL_API_KEY del servidor.
  */
-export async function scrapeStoreItems(storeUrl: string): Promise<StoreItemRaw[]> {
-  const apiKey = process.env.FIRECRAWL_API_KEY || "";
+export async function scrapeStoreItems(storeUrl: string, firecrawlApiKey?: string): Promise<StoreItemRaw[]> {
+  const apiKey = firecrawlApiKey?.trim() || process.env.FIRECRAWL_API_KEY || "";
   if (!apiKey) {
-    throw new Error("FIRECRAWL_API_KEY no configurada en el servidor. El escaneo de tiendas requiere Firecrawl.");
+    throw new Error("FIRECRAWL_API_KEY no configurada. Agrega tu key de Firecrawl en Ajustes → Scraper o en la env var FIRECRAWL_API_KEY.");
   }
 
   const res = await fetch("https://api.firecrawl.dev/v1/scrape", {
@@ -80,10 +86,15 @@ export async function scrapeStoreItems(storeUrl: string): Promise<StoreItemRaw[]
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ url: storeUrl, formats: ["markdown", "links"], waitFor: 5000, maxUrls: 60 }),
+    // maxUrls NO es válido en /v1/scrape (HTTP 400). El parser de markdown extrae
+    // los items con precio real; si eBay cambió el layout se usa el fallback de /sch/.
+    body: JSON.stringify({ url: storeUrl, formats: ["markdown", "links"], waitFor: 5000 }),
     signal: AbortSignal.timeout(45000),
   });
-  if (!res.ok) throw new Error(`Firecrawl store error HTTP ${res.status}`);
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Firecrawl store error HTTP ${res.status}: ${detail.slice(0, 300)}`);
+  }
 
   const json = await res.json();
   const md: string = json?.data?.markdown || "";
@@ -244,7 +255,7 @@ async function callNvidiaScraperWithFallback(
   let lastError: any = null;
 
   for (const model of modelsToTry) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
           method: "POST",
@@ -260,6 +271,13 @@ async function callNvidiaScraperWithFallback(
           }),
           signal: AbortSignal.timeout(30000),
         });
+        // Retry + backoff ante HTTP 529 (sobrecarga temporal de NVIDIA NIM)
+        if (res.status === 529 && attempt < 2) {
+          const waitMs = 1500 * (attempt + 1);
+          console.warn(`[Scraper NVIDIA] HTTP 529 sobrecarga — reintento ${attempt + 1}/3 en ${waitMs}ms`);
+          await new Promise((r) => setTimeout(r, waitMs));
+          continue;
+        }
         if (res.ok) {
           const j = await res.json();
           const text = j?.choices?.[0]?.message?.content || "";
@@ -267,6 +285,7 @@ async function callNvidiaScraperWithFallback(
         } else {
           const body = await res.text();
           console.warn(`[Scraper NVIDIA] Model ${model} HTTP ${res.status}: ${body.slice(0, 120)}`);
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
         }
       } catch (err: any) {
         lastError = err;
@@ -362,7 +381,7 @@ DEBES responder ÚNICAMENTE en formato JSON válido con la siguiente estructura 
   }
 }
 
-export async function scrapeEcommerceUrl(targetUrl: string): Promise<ScrapedProductData> {
+export async function scrapeEcommerceUrl(targetUrl: string, firecrawlApiKey?: string): Promise<ScrapedProductData> {
   const cleanTargetUrl = cleanUrlPath(targetUrl);
 
   const result: ScrapedProductData = {
@@ -397,9 +416,9 @@ export async function scrapeEcommerceUrl(targetUrl: string): Promise<ScrapedProd
   }
 
   // STRATEGY 0: Firecrawl (esquiva CAPTCHA de eBay)
-  if (process.env.FIRECRAWL_API_KEY) {
+  if (firecrawlApiKey?.trim() || process.env.FIRECRAWL_API_KEY) {
     try {
-      const fc = await scrapeWithFirecrawl(cleanTargetUrl);
+      const fc = await scrapeWithFirecrawl(cleanTargetUrl, firecrawlApiKey);
       if (fc.title || (fc.listedPrice && fc.listedPrice > 0)) {
         if (fc.title) result.title = fc.title;
         if (fc.listedPrice && fc.listedPrice > 0) result.listedPrice = fc.listedPrice;
