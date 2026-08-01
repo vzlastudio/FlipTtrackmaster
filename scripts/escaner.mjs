@@ -161,6 +161,8 @@ const SYSTEM_PROMPT = `Actúa como "FlipMaster", experto en flipping de electró
 
 REGLA ESTRICTA DE COMPATIBILIDAD DE RED (SMARTPHONES): si el título/descripción no afirma TEXTUALMENTE "Factory Unlocked", "Network Unlocked" o "Unlocked" (o equivalente en español: desbloqueado de fábrica, liberado, sin bloqueo), o menciona bloqueo de operadora/carrier lock, la decisión DEBE ser EXACTAMENTE "NO VALE LA PENA". No infieras desbloqueo si no está escrito.
 
+REGLA ESTRICTA DE iCLOUD / FIND MY (IPHONES): si el título/descripción no afirma TEXTUALMENTE "iCloud unlocked", "iCloud cleared/off", "Find My off/disabled", "activation unlocked" (o equivalente en español: desbloqueado de iCloud, Find My apagado), o menciona iCloud lock/activation lock/"locked to Apple ID"/Find My on, la decisión DEBE ser EXACTAMENTE "NO VALE LA PENA". No infieras que está libre de iCloud si no está escrito.
+
 Responde ÚNICAMENTE con JSON válido:
 {"decision":"VALE LA PENA TRAERLO|NO VALE LA PENA|DEPENDE","roiPercent":number,"netProfitUSD":number,"maxAbsoluteBidUSD":number,"estimatedMarketPriceVzlaUSD":number,"restorationPessimisticUSD":number,"summaryExplanation":"string corta","pendingQuestionsForSeller":["q1","q2"]}`;
 

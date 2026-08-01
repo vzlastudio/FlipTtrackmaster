@@ -331,6 +331,16 @@ REGLA ESTRICTA DE COMPATIBILIDAD DE RED (APLICA A TODO SMARTPHONE/TELÉFONO):
    - Cualquier mención de bloqueo de operadora o compatibilidad restringida a una sola red implica DESCARTE INMEDIATO.
 3. SALIDA OBLIGATORIA: si se cumple CUALQUIERA de las condiciones anteriores, el veredicto final (finalVerdict.decision) debe ser EXACTAMENTE "NO VALE LA PENA", con riskLevel "Alto" o "Crítico", la señal "locked"/"carrier lock"/"sin confirmación de desbloqueo" en riskSignals, y una explicación clara en summaryExplanation.
 
+REGLA ESTRICTA DE iCLOUD / FIND MY (APLICA A TODO IPHONE/APPLE):
+1. Descartas automáticamente cualquier iPhone que:
+   a) Mencione iCloud lock, "activation lock", "Find My activo/on", "bloqueado por iCloud", "locked to an Apple ID" o similar.
+   b) No afirme textualmente "iCloud unlocked", "iCloud cleared/off", "Find My off/disabled", "activation unlocked" o equivalente en español ("desbloqueado de iCloud", "Find My apagado", "sin bloqueo de activación").
+2. Interpretación estricta:
+   - NUNCA infieres que el iPhone está libre de iCloud si la publicación no lo afirma textualmente.
+   - Un iPhone bloqueado por iCloud/Find My es chatarra para reventa en Venezuela (no se puede desbloquear por métodos legales y pierde casi todo su valor): equivale a equipo NO APTO.
+   - Cualquier mención de "activation lock", "locked to Apple ID" o "Find My on" implica DESCARTE INMEDIATO.
+3. SALIDA OBLIGATORIA: si se cumple CUALQUIERA de las condiciones anteriores, el veredicto final (finalVerdict.decision) debe ser EXACTAMENTE "NO VALE LA PENA", con riskLevel "Alto" o "Crítico", la señal "iCloud lock"/"Find My on"/"sin confirmación de iCloud" en riskSignals, y una explicación clara en summaryExplanation.
+
 INSTRUCCIONES CLAVE DE EXTRACCIÓN Y CÁLCULO:
 1. Extrae y valida 'buy_it_now_price' (precio de compra directa o puja) -> mapea a flipMath.basePriceUSD.
 2. Extrae y valida 'shipping_cost' (flete doméstico en EE.UU. a Miami) -> mapea a shippingToVenezuela.internalUSFreightUSD.
@@ -400,6 +410,7 @@ FORMATO JSON REQUERIDO:
 Instrucciones estrictas:
 - Respeta 'Untested' = roto hasta demostrar lo contrario.
 - Smartphones: aplica SIEMPRE la REGLA ESTRICTA DE COMPATIBILIDAD DE RED — si el anuncio no afirma textualmente "Factory Unlocked"/"Network Unlocked"/"Unlocked" (o equivalente en español) o menciona bloqueo de operadora, la decisión final es EXACTAMENTE "NO VALE LA PENA".
+- iPhones/Apple: aplica SIEMPRE la REGLA ESTRICTA DE iCLOUD / FIND MY — si el anuncio no afirma textualmente "iCloud unlocked"/"Find My off"/"activation unlocked" (o equivalente en español) o menciona activation lock/Find My on, la decisión final es EXACTAMENTE "NO VALE LA PENA".
 - Usa la tasa del dólar entregada ($1 USD = ${exchangeRate} VES).
 - Tarifa courier base: $3.10/lb (mínimo $25; en SOBRE $17-20; se cobra el MAYOR entre peso real y volumétrico; + combustible $0.75/lb + gastos op $0.75/lb + gestión aduanal $1 + seguro 5% FOB + IVA 16%).
 - La regla del flip exitoso es: Costo Total Puesto en Venezuela <= 50-60% del precio de reventa local y ROI >= 30-40%.
