@@ -10,6 +10,94 @@ export interface StoreItemRaw {
 }
 
 /**
+ * Extrae SOLO la descripción real del producto desde el markdown de Firecrawl,
+ * eliminando el boilerplate de eBay: "Find similar items from", items promocionados,
+ * imágenes, enlaces, "Shop on eBay", "Item specifics", secciones de envío/venta, etc.
+ *
+ * eBay inyecta mucho contenido irrelevante al inicio del markdown (items patrocinados),
+ * por lo que no basta con recortar los primeros N caracteres. Aquí se:
+ * 1. Busca la sección "Description" / "Item description" dentro del markdown.
+ * 2. Recoge texto desde esa sección y corta en las secciones siguientes conocidas.
+ * 3. Si no encuentra una sección de descripción clara, devuelve texto limpio sin
+ *    boilerplate (o vacío si no hay nada aprovechable).
+ */
+export function extractDescriptionFromMarkdown(md: string, maxLength = 1500): string {
+  if (!md) return "";
+
+  const lines = md.split("\n");
+
+  // Palabras clave de secciones que NO son la descripción del producto.
+  const SECTION_STOPS =
+    /(?:item\s+spec|shipping|returns?|payment|seller\s+info|about\s+the\s+seller|feedback|en[vií]o|devolucion|informaci[oó]n\s+del\s+vendedor|garant[íi]a|pago|similar\s+items|other\s+items|shop\s+on\s+ebay|promoted|patrocinad)/i;
+
+  // Texto obviamente basura: enlaces markdown, imágenes, URLs sueltas, frases boilerplate.
+  const JUNK =
+    /(?:find\s+similar\s+items|opens\s+in\s+a\s+new\s+window|shop\s+on\s+ebay|promoted|s-l\d+\.jpg|ebayimg|sell\s+one\s+like\s+this|visit\s+store|report\s+item|sign\s+in|create\s+account|loading|please\s+wait)/i;
+
+  // Buscar dónde empieza la descripción real (encabezados comunes de eBay).
+  // Si NO hay encabezado, devolvemos vacío: es señal de que el markdown no
+  // incluye la descripción (eBay la carga de forma lazy) y el JSON-LD / scraper
+  // NVIDIA la llenarán. Arrancar en la línea 0 recolectaría títulos de items
+  // promocionados (el bug original).
+  let startIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    // Firecrawl devuelve markdown: los encabezados vienen como "## Description".
+    // Se quita el prefijo de # antes de comparar con el regex de encabezado.
+    const t = lines[i].replace(/^#{1,6}\s*/, "").trim();
+    if (/^(description|item description|about this item|about this product|descripci[oó]n|detalles del art[íi]culo)\s*:?$/i.test(t)) {
+      startIdx = i + 1;
+      break;
+    }
+  }
+  if (startIdx === -1) return "";
+
+  const out: string[] = [];
+  let length = 0;
+
+  for (let i = startIdx; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) continue;
+
+    // Quitar sintaxis markdown de imágenes y enlaces, conservando solo texto visible.
+    line = line
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+      .replace(/\[[^\]]*\]\([^)]*\)/g, " ")
+      .replace(/[*_#>`~]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!line) continue;
+
+    // Cortar al llegar a una sección posterior no descriptiva (si ya hay contenido).
+    // Para no truncar descripciones legítimas que contengan "shipping"/"returns" a
+    // mitad de texto, solo corta si la línea parece un ENCABEZADO de sección:
+    // (a) empieza con un header corto terminado en ":" que matchea SECTION_STOPS, o
+    // (b) es una línea corta (<60 chars) cuyo INICIO matchea los stops
+    //     (encabezado markdown estilo "## Shipping" que quedó sin ":").
+    if (out.length > 0) {
+      const headerMatch = line.match(/^([\wáéíóúñ'& \-]+):/i);
+      const header = headerMatch ? headerMatch[1].toLowerCase().trim() : "";
+      const startsWithStop =
+        /^(?:item\s+spec|shipping|returns?|payment|seller\s+info|about\s+the\s+seller|feedback|en[vií]o|devolucion|informaci[oó]n\s+del\s+vendedor|garant[íi]a|pago|similar\s+items|other\s+items|shop\s+on\s+ebay|promoted|patrocinad)/i.test(
+          line
+        );
+      const isShortHeader = line.length < 60 && startsWithStop;
+      if ((header && SECTION_STOPS.test(header)) || isShortHeader) break;
+    }
+    // Saltar basura / items promocionados.
+    if (JUNK.test(line) || /^https?:\/\//i.test(line)) continue;
+
+    out.push(line);
+    length += line.length + 1;
+    if (length >= maxLength) break;
+  }
+
+  const text = out.join(" ").replace(/\s+/g, " ").trim();
+  // Si quedó pura basura o nada útil, devolver vacío (los demás scrapers lo llenarán).
+  if (!text || JUNK.test(text)) return "";
+  return text.slice(0, maxLength);
+}
+
+/**
  * STRATEGY 0: Firecrawl — esquiva CAPTCHA de eBay (tiendas y búsquedas por vendedor).
  * Parsea el markdown devuelto: título **...**, precio $XX.XX, condición, vendedor.
  *
@@ -55,8 +143,8 @@ export async function scrapeWithFirecrawl(targetUrl: string, firecrawlApiKey?: s
     const sellerMatch = md.match(/(?:Seller|Vendedor)[:\s]+([^\n|]{2,60})/i);
     if (sellerMatch) result.seller = sellerMatch[1].trim();
 
-    const clean = md.replace(/\*\*/g, "").replace(/#{1,6}\s*/g, "").replace(/\s+/g, " ").trim();
-    result.description = clean.slice(0, 1500);
+    // Descripción real del producto (sin items promocionados ni boilerplate de eBay)
+    result.description = extractDescriptionFromMarkdown(md);
 
     const imgMatch = md.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/);
     if (imgMatch) result.imageUrl = imgMatch[1];
@@ -488,7 +576,15 @@ export async function scrapeEcommerceUrl(targetUrl: string, firecrawlApiKey?: st
                 if (typeof img === "string") result.imageUrl = img;
                 else if (img?.url) result.imageUrl = img.url;
               }
-              if (item.description && !result.description) {
+              // JSON-LD suele traer la descripción LIMPIA del producto. Si Firecrawl
+              // dejó basura promocional ("Find similar items", imágenes, etc.),
+              // la descripción de JSON-LD tiene prioridad.
+              const fcDesc = result.description || "";
+              const fcIsJunk =
+                /(find\s+similar\s+items|shop\s+on\s+ebay|promoted|s-l\d+\.jpg|ebayimg|opens\s+in\s+a\s+new\s+window)/i.test(
+                  fcDesc
+                );
+              if (item.description && (!result.description || fcIsJunk)) {
                 result.description = String(item.description).replace(/<[^>]*>?/gm, "").trim();
               }
               if (item.offers) {
