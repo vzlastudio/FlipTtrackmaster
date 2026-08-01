@@ -166,6 +166,39 @@ REGLA ESTRICTA DE iCLOUD / FIND MY (IPHONES): si el título/descripción no afir
 Responde ÚNICAMENTE con JSON válido:
 {"decision":"VALE LA PENA TRAERLO|NO VALE LA PENA|DEPENDE","roiPercent":number,"netProfitUSD":number,"maxAbsoluteBidUSD":number,"estimatedMarketPriceVzlaUSD":number,"restorationPessimisticUSD":number,"summaryExplanation":"string corta","pendingQuestionsForSeller":["q1","q2"]}`;
 
+// ── Refuerzo determinista: bloqueo de red / iCloud (independiente de la IA) ──
+const RE_PHONE = /\b(iphone|galaxy\s+(?:s|z|a|note|j|m|f)\s?\d*|pixel\s+\d*|smartphone|celular|telefono|tel[eé]fono|xiaomi|huawei|oneplus|motorola|moto\s+g|moto\s+e)\b/i;
+const RE_NET_LOCK = /\blocked\s+(to|by)\b|\bcarrier\s*lock(?:ed)?\b|\bsim\s*lock(?:ed)?\b|\bnetwork\s*lock(?:ed)?\b|\blocked\s+(?:to\s+)?(?:at&?t|verizon|t-mobile|t\s*mobile|sprint|att|tmobile|cricket|metro|boost|vzw)\b|\b(?:at&?t|verizon|t-mobile|t\s*mobile|sprint)\s+locked\b|\bsolo\s+funciona\s+con\b|\bonly\s+works\s+with\b|\bbloquead[oa]\s+(a|por)\b|\bbloqueo\s+de\s+(red|operadora|compa[nñ]ia)\b/i;
+const RE_NET_UNLOCK = /\bunlocked\b|\bfactory\s+unlocked\b|\bnetwork\s+unlocked\b|\bdesbloquead[oa]\b|\blibera(?:do|da)\b|\bsin\s+bloqueo\b/i;
+const RE_ICLOUD_LOCK = /\bicloud\s*lock(?:ed)?\b|\bactivation\s*lock(?:ed)?\b|\bfind\s+my\s+(?:is\s+)?(?:on|activo|activado|active)\b|\blocked\s+to\s+(?:an?\s+)?apple\b|\bapple\s*id\s+lock(?:ed)?\b|\bbloquead[oa]\s+por\s+icloud\b/i;
+const RE_ICLOUD_UNLOCK = /\bicloud\s*unlock(?:ed)?\b|\bicloud\s*(?:cleared|off|disabled|free|removed)\b|\bfind\s+my\s+(?:is\s+)?(?:off|disabled|apagad[oa]|desactivad[oa])\b|\bactivation\s*unlock(?:ed)?\b|\bdesbloquead[oa]\s+de\s+icloud\b|\bsin\s+bloqueo\s+de\s+activaci[oó]n\b/i;
+
+function enforceLockGuard(parsed, titulo) {
+  if (!parsed || typeof parsed !== "object") return false;
+  const t = String(titulo || "").toLowerCase();
+  if (!t || !RE_PHONE.test(t)) return false;
+
+  const reasons = [];
+  const isIphone = /\biphone\b/i.test(t);
+  if (RE_NET_LOCK.test(t)) {
+    reasons.push("bloqueado a operadora/red específica");
+  } else if (!RE_NET_UNLOCK.test(t)) {
+    reasons.push("no afirma textualmente 'Unlocked'/'Factory Unlocked'");
+  }
+  if (isIphone) {
+    if (RE_ICLOUD_LOCK.test(t)) {
+      reasons.push("iCloud/Find My bloqueado (activation lock)");
+    } else if (!RE_ICLOUD_UNLOCK.test(t)) {
+      reasons.push("no afirma textualmente 'iCloud unlocked'/'Find My off'");
+    }
+  }
+  if (reasons.length === 0) return false;
+  parsed.decision = "NO VALE LA PENA";
+  parsed.summaryExplanation = `[GUARD DETERMINISTA] ${reasons.join("; ")}. ${parsed.summaryExplanation || ""}`.trim();
+  console.warn(`     ⛔ GUARD DETERMINISTA: ${reasons.join("; ")} — ${String(titulo || "").slice(0, 60)}`);
+  return true;
+}
+
 async function analizarItem(item) {
   const apiKey = process.env.NVIDIA_API_KEY || "";
   if (!apiKey) throw new Error("Falta NVIDIA_API_KEY en el entorno.");
@@ -195,6 +228,7 @@ async function analizarItem(item) {
   const clean = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
   const parsed = extractJson(clean) || extractJson(raw);
   if (!parsed) return null;
+  enforceLockGuard(parsed, item.titulo);
   return parsed;
 }
 

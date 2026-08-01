@@ -82,6 +82,109 @@ function parseRateFromJson(json: any): number {
   return 0;
 }
 
+// ── Refuerzo determinista: Reglas estrictas de bloqueo (red + iCloud) ─────────
+// Se aplican sobre el texto REAL del anuncio (título + descripción + datos
+// extraídos en vivo), independientemente de lo que responda la IA. Si el artículo
+// es un teléfono y no cumple las reglas estrictas, se FUERZA el veredicto
+// "NO VALE LA PENA". Así la regla no depende del cumplimiento del LLM.
+
+// Detección de teléfono basada en el TÍTULO (identidad del producto). Evita falsos
+// positivos del texto completo ("teléfono de contacto", "Samsung TV", "pixel resolution").
+const PHONE_PATTERN = /\b(iphone|galaxy\s+(?:s|z|a|note|j|m|f)\s?\d*|pixel\s+\d*|smartphone|celular|telefono|tel[eé]fono|xiaomi|huawei|oneplus|motorola|moto\s+g|moto\s+e)\b/i;
+
+// Patrón fuerte de respaldo (solo se usa si no hay título): busca modelos explícitos.
+const STRONG_PHONE_PATTERN = /\b(iphone|galaxy\s+(?:s|z|a|note|j|m|f)\s?\d+|pixel\s+\d+|smartphone)\b/i;
+
+// Señales NEGATIVAS de red (bloqueado / restringido a una sola red)
+const NETWORK_LOCK_SIGNALS = [
+  /\blocked\s+to\b/i,
+  /\blocked\s+by\b/i,
+  /\bcarrier\s*lock(?:ed)?\b/i,
+  /\bsim\s*lock(?:ed)?\b/i,
+  /\bnetwork\s*lock(?:ed)?\b/i,
+  /\blocked\s+(?:to\s+)?(?:at&?t|verizon|t-mobile|t\s*mobile|sprint|att|tmobile|cricket|metro|boost|vzw)\b/i,
+  /\b(?:at&?t|verizon|t-mobile|t\s*mobile|sprint)\s+locked\b/i,
+  /\bsolo\s+funciona\s+con\b/i,
+  /\bonly\s+works\s+with\b/i,
+  /\bbloquead[oa]\s+(?:a|por)\b/i,
+  /\bbloqueo\s+de\s+(?:red|operadora|compa[nñ]ia)\b/i,
+];
+
+// Señales POSITIVAS de red (desbloqueo universal explícito)
+const NETWORK_UNLOCK_SIGNALS = [
+  /\bunlocked\b/i,
+  /\bfactory\s+unlocked\b/i,
+  /\bnetwork\s+unlocked\b/i,
+  /\bdesbloquead[oa]\b/i,
+  /\blibera(?:do|da)\b/i,
+  /\bsin\s+bloqueo\b/i,
+];
+
+// Señales NEGATIVAS de iCloud / Find My (solo iPhone/Apple)
+const ICLOUD_LOCK_SIGNALS = [
+  /\bicloud\s*lock(?:ed)?\b/i,
+  /\bactivation\s*lock(?:ed)?\b/i,
+  /\bfind\s+my\s+(?:is\s+)?(?:on|activo|activado|active)\b/i,
+  /\blocked\s+to\s+(?:an?\s+)?apple\b/i,
+  /\bapple\s*id\s+lock(?:ed)?\b/i,
+  /\bbloquead[oa]\s+por\s+icloud\b/i,
+];
+
+// Señales POSITIVAS de iCloud / Find My (libre de activación)
+const ICLOUD_UNLOCK_SIGNALS = [
+  /\bicloud\s*unlock(?:ed)?\b/i,
+  /\bicloud\s*(?:cleared|off|disabled|free|removed)\b/i,
+  /\bfind\s+my\s+(?:is\s+)?(?:off|disabled|apagad[oa]|desactivad[oa])\b/i,
+  /\bactivation\s*unlock(?:ed)?\b/i,
+  /\bdesbloquead[oa]\s+de\s+icloud\b/i,
+  /\bsin\s+bloqueo\s+de\s+activaci[oó]n\b/i,
+];
+
+function enforceLockGuard(parsed: any, rawText: string, title?: string): boolean {
+  if (!parsed || typeof parsed !== "object") return false;
+  const txt = String(rawText || "").toLowerCase();
+  const titleTxt = String(title || "").trim().toLowerCase();
+  // "Es un teléfono" se decide por el TÍTULO (o patrón fuerte si no hay título).
+  const isPhone = titleTxt ? PHONE_PATTERN.test(titleTxt) : STRONG_PHONE_PATTERN.test(txt);
+  if (!txt || !isPhone) return false;
+
+  const reasons: string[] = [];
+  const isIphone = /\biphone\b/i.test(txt);
+
+  // 1) Regla estricta de red: bloqueo detectado o falta de confirmación textual
+  const hasLock = NETWORK_LOCK_SIGNALS.some((re) => re.test(txt));
+  const hasUnlock = NETWORK_UNLOCK_SIGNALS.some((re) => re.test(txt));
+  if (hasLock) {
+    reasons.push("bloqueado a operadora/red específica");
+  } else if (!hasUnlock) {
+    reasons.push("no afirma textualmente 'Unlocked'/'Factory Unlocked'/'Network Unlocked'");
+  }
+
+  // 2) Regla estricta de iCloud (solo iPhone/Apple): bloqueo o falta de confirmación
+  if (isIphone) {
+    const hasIcloudLock = ICLOUD_LOCK_SIGNALS.some((re) => re.test(txt));
+    const hasIcloudUnlock = ICLOUD_UNLOCK_SIGNALS.some((re) => re.test(txt));
+    if (hasIcloudLock) {
+      reasons.push("iCloud/Find My bloqueado (activation lock)");
+    } else if (!hasIcloudUnlock) {
+      reasons.push("no afirma textualmente 'iCloud unlocked'/'Find My off'");
+    }
+  }
+
+  if (reasons.length === 0) return false;
+
+  // Fuerza el veredicto determinista
+  parsed.finalVerdict = parsed.finalVerdict || {};
+  parsed.finalVerdict.decision = "NO VALE LA PENA";
+  parsed.finalVerdict.summaryExplanation = `[GUARD DETERMINISTA] ${reasons.join("; ")}. ${parsed.finalVerdict.summaryExplanation || ""}`.trim();
+  parsed.productIdentification = parsed.productIdentification || {};
+  parsed.productIdentification.riskLevel = "Alto";
+  if (!Array.isArray(parsed.productIdentification.riskSignals)) parsed.productIdentification.riskSignals = [];
+  parsed.productIdentification.riskSignals.push(...reasons);
+  console.warn(`[FlipMaster GUARD] Teléfono descartado por regla estricta: ${reasons.join("; ")}`);
+  return true;
+}
+
 // Exchange Rate API (Consuming DolarFlow APIs: https://dolarflow.com/api/oficial/ & https://dolarflow.com/api/paralelo/)
 app.get("/api/exchange-rate", async (_req, res) => {
   let bcvRate = 72.45;
@@ -436,6 +539,10 @@ ${scrapedInfoSnippet}
     const wantsGemini = modelName.startsWith("gemini") && !!process.env.GEMINI_API_KEY;
     const nvidiaKey = req.body.nvidiaApiKey || process.env.NVIDIA_API_KEY || "";
 
+    // Texto REAL del anuncio (título + descripción + datos extraídos en vivo) para
+    // el guard determinista de bloqueo de red / iCloud.
+    const rawListingText = `${title || ""} ${description || ""} ${scrapedInfoSnippet || ""}`;
+
     if (!wantsGemini) {
       if (!nvidiaKey) {
         return res.status(400).json({
@@ -496,6 +603,7 @@ ${scrapedInfoSnippet}
         const parsedNvData = extractJsonFromText(cleanNvText) || extractJsonFromText(nvRawText);
 
         if (parsedNvData && (parsedNvData.productIdentification || parsedNvData.flipMath)) {
+          enforceLockGuard(parsedNvData, rawListingText, title);
           return res.json({ success: true, data: parsedNvData, provider: "NVIDIA NIM (DeepSeek)" });
         }
       }
@@ -562,6 +670,8 @@ ${scrapedInfoSnippet}
         finalVerdict: { decision: "DEPENDE", summaryExplanation: "Respuesta no estructurada recibida de la IA." },
       };
     }
+
+    enforceLockGuard(parsedData, rawListingText, title);
 
     return res.json({ success: true, data: parsedData });
   } catch (error: any) {
