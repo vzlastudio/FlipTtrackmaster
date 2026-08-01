@@ -63,7 +63,23 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const [activeModule, setActiveModule] = useState<FlipModule>("dashboard");
+  // ── Deep-link por módulo (?m=dashboard|analyzer|logistics|...) ──────────
+  // Permite abrir directamente un módulo (útil para capturas y compartir vistas).
+  const initialModule = (() => {
+    if (typeof window !== "undefined") {
+      const m = new URLSearchParams(window.location.search).get("m");
+      if (m && [
+        "dashboard", "analyzer", "opportunities", "purchases", "logistics",
+        "repairs", "inventory", "sales", "transactions", "clients",
+        "documents", "audit", "ebaysync", "tiendas", "calculators",
+        "reports", "exports", "settings",
+      ].includes(m)) {
+        return m as FlipModule;
+      }
+    }
+    return "dashboard";
+  })();
+  const [activeModule, setActiveModule] = useState<FlipModule>(initialModule);
   const [flips, setFlips] = usePersistentState<FlipItem>("flips", initialFlips);
   const [transactions, setTransactions] = usePersistentState<Transaction>("transactions", initialTransactions);
   const [clients, setClients] = usePersistentState<Client>("clients", initialClients);

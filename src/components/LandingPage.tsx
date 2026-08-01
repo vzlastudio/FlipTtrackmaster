@@ -422,8 +422,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
       {/* ── Hero ───────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         {/* Decorative blur orbs */}
-        <div className="pointer-events-none absolute -top-32 -right-32 w-96 h-96 rounded-full bg-emerald-400/10 blur-3xl" />
-        <div className="pointer-events-none absolute top-40 -left-32 w-96 h-96 rounded-full bg-amber-400/10 blur-3xl" />
+        <div className={`pointer-events-none absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl ${cc("bg-[#121212]/5", "bg-white/5")}`} />
+        <div className={`pointer-events-none absolute top-40 -left-32 w-96 h-96 rounded-full blur-3xl ${cc("bg-[#616161]/10", "bg-white/10")}`} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-16 sm:pb-24 grid lg:grid-cols-2 gap-12 items-center relative">
           {/* Left copy */}
@@ -438,7 +438,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             </span>
             <h1 className="font-serif font-normal text-4xl sm:text-5xl lg:text-6xl leading-[1.05] mt-6 tracking-tight">
               {t.hero.title1}{" "}
-              <em className="italic text-emerald-500">{t.hero.title2}</em>{" "}
+              <em className={`italic font-semibold ${cc("text-[#121212]", "text-white")}`}>{t.hero.title2}</em>{" "}
               {t.hero.title3}
             </h1>
             <p className={`mt-6 text-base sm:text-lg max-w-xl leading-relaxed ${cc("text-[#555]", "text-[#b8b6b0]")}`}>
@@ -463,7 +463,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
               </button>
             </div>
             <p className={`mt-6 text-xs flex items-center space-x-2 ${cc("text-[#888]", "text-[#6f6e69]")}`}>
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <ShieldCheck className={`w-3.5 h-3.5 ${cc("text-[#121212]", "text-[#f2f0ec]")}`} />
               <span>{t.hero.trust}</span>
             </p>
           </div>
@@ -495,32 +495,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
 
               {/* Mock JSON-ish output */}
               <div className={`font-mono text-[12px] space-y-2 ${cc("text-[#333]", "text-[#cfcfc9]")}`}>
-                <p className="text-emerald-500">▶ {"{"} "finalVerdict": {"{"}</p>
+                <p className={`${cc("text-[#121212]", "text-[#f2f0ec]")}`}>▶ {"{"} "finalVerdict": {"{"}</p>
                 <p className="pl-5">
-                  <span className="text-amber-500">"decision"</span>:{" "}
-                  <span className="text-emerald-500 font-bold">"{t.hero.mockVerdict}"</span>,
+                  <span className={cc("text-[#616161]", "text-[#a8a6a0]")}>"decision"</span>:{" "}
+                  <span className={`font-bold ${cc("text-[#121212]", "text-[#f2f0ec]")}`}>"{t.hero.mockVerdict}"</span>,
                 </p>
                 <p className="pl-5">
-                  <span className="text-amber-500">"roiPercent"</span>: <span className="text-sky-500">64.9</span>,
+                  <span className={cc("text-[#616161]", "text-[#a8a6a0]")}>"roiPercent"</span>: <span className={cc("text-[#121212]", "text-[#f2f0ec]")}>64.9</span>,
                 </p>
                 <p className="pl-5">
-                  <span className="text-amber-500">"netProfitUSD"</span>: <span className="text-sky-500">217.45</span>
+                  <span className={cc("text-[#616161]", "text-[#a8a6a0]")}>"netProfitUSD"</span>: <span className={cc("text-[#121212]", "text-[#f2f0ec]")}>217.45</span>
                 </p>
-                <p className="text-emerald-500">▶ {"}"} "flipMath": {"{"}</p>
+                <p className={`${cc("text-[#121212]", "text-[#f2f0ec]")}`}>▶ {"}"} "flipMath": {"{"}</p>
                 <p className="pl-5">
-                  <span className="text-amber-500">"totalLandedCostUSD"</span>: <span className="text-sky-500">363.05</span>,
+                  <span className={cc("text-[#616161]", "text-[#a8a6a0]")}>"totalLandedCostUSD"</span>: <span className={cc("text-[#121212]", "text-[#f2f0ec]")}>363.05</span>,
                 </p>
                 <p className="pl-5">
-                  <span className="text-amber-500">"maxAbsoluteBidUSD"</span>: <span className="text-sky-500">320</span>,
+                  <span className={cc("text-[#616161]", "text-[#a8a6a0]")}>"maxAbsoluteBidUSD"</span>: <span className={cc("text-[#121212]", "text-[#f2f0ec]")}>320</span>,
                 </p>
-                <p className="text-emerald-500">▶ {"}"} "riskLevel": "Bajo" {"}"}</p>
+                <p className={`${cc("text-[#121212]", "text-[#f2f0ec]")}`}>▶ {"}"} "riskLevel": "Bajo" {"}"}</p>
               </div>
 
               {/* Verdict badge */}
               <div className="mt-5 grid grid-cols-3 gap-3">
-                <div className={`rounded-xl p-3 text-center ${cc("bg-emerald-50 border border-emerald-200", "bg-emerald-500/10 border border-emerald-500/30")}`}>
-                  <p className="text-[10px] uppercase tracking-wider text-emerald-600">{lang === "es" ? "Veredicto" : "Verdict"}</p>
-                  <p className="text-xs font-bold text-emerald-600 mt-1">PUJA ✓</p>
+                <div className={`rounded-xl p-3 text-center ${cc("bg-[#121212] text-white", "bg-[#f2f0ec] text-[#0a0a0a]")}`}>
+                  <p className="text-[10px] uppercase tracking-wider opacity-80">{lang === "es" ? "Veredicto" : "Verdict"}</p>
+                  <p className="text-xs font-bold mt-1">PUJA ✓</p>
                 </div>
                 <div className={`rounded-xl p-3 text-center ${cc("bg-[#f6f5f2] border border-[#e6e4e0]", "bg-[#1c1c1f] border border-[#26262b]")}`}>
                   <p className="text-[10px] uppercase tracking-wider">{t.hero.mockRoiLabel}</p>
@@ -528,7 +528,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                 </div>
                 <div className={`rounded-xl p-3 text-center ${cc("bg-[#f6f5f2] border border-[#e6e4e0]", "bg-[#1c1c1f] border border-[#26262b]")}`}>
                   <p className="text-[10px] uppercase tracking-wider">{lang === "es" ? "Ganancia" : "Profit"}</p>
-                  <p className="text-xs font-bold mt-1 text-emerald-600">{t.hero.mockProfit}</p>
+                  <p className="text-xs font-bold mt-1">{t.hero.mockProfit}</p>
                 </div>
               </div>
             </div>
@@ -585,7 +585,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             {t.how.steps.map((s) => (
               <div key={s.n} className="relative">
                 <div className="flex items-center space-x-3">
-                  <span className="font-serif text-4xl font-bold text-emerald-500/80">{s.n}</span>
+                  <span className={`font-serif text-4xl font-bold ${cc("text-[#121212]/80", "text-[#f2f0ec]/80")}`}>{s.n}</span>
                   <div className={`h-px flex-1 ${cc("bg-[#d9d6d0]", "bg-[#26262b]")}`} />
                 </div>
                 <h3 className="font-serif text-lg font-semibold mt-4">{s.t}</h3>
@@ -611,26 +611,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                 p.featured
                   ? cc(
                       "bg-[#121212] text-white border-[#121212] shadow-2xl md:-translate-y-3",
-                      "bg-emerald-500/10 border-emerald-500/40 shadow-2xl md:-translate-y-3"
+                      "bg-[#161618] text-[#f2f0ec] border-[#f2f0ec] shadow-2xl md:-translate-y-3"
                     )
                   : cc("bg-white border-[#e6e4e0]", "bg-[#141416] border-[#26262b]")
               }`}
             >
               {p.featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                <span className={`absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full ${cc("bg-white text-[#121212]", "bg-[#f2f0ec] text-[#121212]")}`}>
                   ★ {lang === "es" ? "Recomendado" : "Recommended"}
                 </span>
               )}
               <h3 className="font-serif text-xl font-semibold">{p.name}</h3>
-              <p className={`mt-1 text-sm ${cc("text-[#666]", "text-[#a8a6a0]")}`}>{p.desc}</p>
+              <p className={`mt-1 text-sm ${p.featured ? cc("text-[#c9c7c2]", "text-[#a8a6a0]") : cc("text-[#666]", "text-[#a8a6a0]")}`}>{p.desc}</p>
               <div className="mt-6 flex items-baseline space-x-1">
                 <span className="font-serif text-4xl font-bold">{p.price}</span>
-                <span className={`text-sm ${cc("text-[#666]", "text-[#a8a6a0]")}`}>{p.period}</span>
+                <span className={`text-sm ${p.featured ? cc("text-[#c9c7c2]", "text-[#a8a6a0]") : cc("text-[#666]", "text-[#a8a6a0]")}`}>{p.period}</span>
               </div>
               <ul className="mt-6 space-y-3 flex-1">
                 {p.features.map((f) => (
                   <li key={f} className="flex items-start space-x-2 text-sm">
-                    <Check className={`w-4 h-4 mt-0.5 shrink-0 ${p.featured ? "text-emerald-400" : "text-emerald-500"}`} />
+                    <Check className={`w-4 h-4 mt-0.5 shrink-0 ${p.featured ? cc("text-white", "text-[#f2f0ec]") : cc("text-[#121212]", "text-[#f2f0ec]")}`} />
                     <span>{f}</span>
                   </li>
                 ))}
@@ -639,7 +639,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                 onClick={onEnterApp}
                 className={`mt-8 w-full py-3 rounded-full text-sm font-medium transition active:scale-95 ${
                   p.featured
-                    ? "bg-emerald-500 hover:bg-emerald-400 text-[#0a0a0a]"
+                    ? cc("bg-white hover:bg-[#dbdad7] text-[#121212]", "bg-[#f2f0ec] hover:bg-white text-[#0a0a0a]")
                     : cc(
                         "bg-[#121212] hover:bg-[#282828] text-white",
                         "bg-[#f2f0ec] hover:bg-white text-[#0a0a0a]"
@@ -661,13 +661,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             "bg-gradient-to-br from-[#161618] to-[#0e0e10] border border-[#26262b]"
           )}`}
         >
-          <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl" />
-          <Zap className="w-10 h-10 text-emerald-400 mx-auto" />
+          <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
+          <Zap className="w-10 h-10 text-white mx-auto" />
           <h2 className="font-serif text-3xl sm:text-4xl tracking-tight mt-4">{t.finalCta.title}</h2>
           <p className={`mt-3 max-w-xl mx-auto ${cc("text-[#aaa]", "text-[#b8b6b0]")}`}>{t.finalCta.sub}</p>
           <button
             onClick={onEnterApp}
-            className="group inline-flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-[#0a0a0a] font-medium px-8 py-4 rounded-full mt-8 transition active:scale-95"
+            className="group inline-flex items-center space-x-2 bg-white hover:bg-[#dbdad7] text-[#121212] font-medium px-8 py-4 rounded-full mt-8 transition active:scale-95"
           >
             <span>{t.finalCta.cta}</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -702,7 +702,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                   "border-[#26262b] hover:bg-[#161618]"
                 )}`}
               >
-                <MessageCircle className="w-4 h-4 text-emerald-500" />
+                <MessageCircle className={`w-4 h-4 ${cc("text-[#121212]", "text-[#f2f0ec]")}`} />
                 <span>WhatsApp</span>
               </a>
               <a
@@ -742,17 +742,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             <h4 className="text-xs font-semibold uppercase tracking-wider">{t.footer.contact}</h4>
             <ul className="mt-4 space-y-2.5 text-sm">
               <li className="flex items-center space-x-2">
-                <MessageCircle className="w-4 h-4 text-emerald-500" />
+                <MessageCircle className={`w-4 h-4 ${cc("text-[#121212]", "text-[#f2f0ec]")}`} />
                 <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="hover:opacity-70 transition-opacity">
                   WhatsApp
                 </a>
               </li>
               <li className="flex items-center space-x-2">
-                <BarChart3 className="w-4 h-4 text-emerald-500" />
+                <BarChart3 className={`w-4 h-4 ${cc("text-[#121212]", "text-[#f2f0ec]")}`} />
                 <span>{lang === "es" ? "Reportes PDF" : "PDF reports"}</span>
               </li>
               <li className="flex items-center space-x-2">
-                <Wallet className="w-4 h-4 text-emerald-500" />
+                <Wallet className={`w-4 h-4 ${cc("text-[#121212]", "text-[#f2f0ec]")}`} />
                 <span>{lang === "es" ? "Dólar BCV y paralelo en vivo" : "Live BCV & parallel dollar"}</span>
               </li>
             </ul>
@@ -764,7 +764,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             <span className={cc("text-[#888]", "text-[#6f6e69]")}>{t.footer.rights}</span>
             <span className={`flex items-center space-x-1 ${cc("text-[#888]", "text-[#6f6e69]")}`}>
               <span>{t.footer.madeIn}</span>
-              <span className="text-red-500">♥</span>
+              <span className={cc("text-[#121212]", "text-[#f2f0ec]")}>♥</span>
             </span>
           </div>
         </div>
