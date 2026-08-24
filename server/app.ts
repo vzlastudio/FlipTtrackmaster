@@ -2,6 +2,7 @@ import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { scrapeEcommerceUrl, extractJsonFromText, scrapeStoreItems } from "./scraper.js";
+import { scrapeProductWithStagehand, scrapeStoreWithStagehand, closeStagehand } from "./stagehand.js";
 
 dotenv.config();
 
@@ -353,6 +354,44 @@ app.post("/api/telegram/test", async (req, res) => {
     return res.json({ success: false, error: j?.description || `HTTP ${r.status}` });
   } catch (err: any) {
     return res.json({ success: false, error: err?.message || "Error de conexión con Telegram." });
+  }
+});
+
+// ── Stagehand Smart Scraper (complemento a Firecrawl) ────────────────────────────
+// Para sitios dinámicos: ShopGoodwill (Cloudflare + lazy-loading), eBay searches,
+// y cualquier sitio que Firecrawl no pueda manejar.
+app.post("/api/scrape-smart", async (req, res) => {
+  try {
+    const { url, type = "product", browserbaseApiKey, nvidiaApiKey } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ success: false, error: "Ingresa una URL válida." });
+    }
+
+    if (type === "store") {
+      const result = await scrapeStoreWithStagehand(url, {
+        browserbaseApiKey,
+        nvidiaApiKey,
+      });
+      return res.json({ success: true, ...result, method: "Stagehand" });
+    }
+
+    const result = await scrapeProductWithStagehand(url, {
+      browserbaseApiKey,
+      nvidiaApiKey,
+    });
+    if (!result) {
+      return res.status(404).json({ success: false, error: "Stagehand no pudo extraer datos de la página." });
+    }
+    return res.json({ success: true, data: result, method: "Stagehand" });
+  } catch (error: any) {
+    console.error("Stagehand Smart Scraper Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Error con Stagehand. Verifica que BROWSERBASE_API_KEY esté configurada.",
+    });
+  } finally {
+    // Cerrar sesión de Stagehand para liberar recursos
+    await closeStagehand().catch(() => {});
   }
 });
 

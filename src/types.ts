@@ -305,4 +305,6 @@ export interface AppSettings {
   telegramChatId?: string;
   // Firecrawl key (also set on server via env)
   firecrawlApiKey?: string;
+  // Browserbase key for Stagehand browser agent (optional complement to Firecrawl)
+  browserbaseApiKey?: string;
 }
