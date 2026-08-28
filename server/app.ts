@@ -416,6 +416,8 @@ app.post("/api/scrape-store", async (req, res) => {
 
 // FlipMaster AI Analysis Endpoint
 app.post("/api/analyze", async (req, res) => {
+  const handlerStart = Date.now();
+  const DEADLINE_MS = 50000; // 50s hard limit (Vercel Hobby = 60s)
   try {
     let {
       url,
@@ -531,6 +533,11 @@ ${scrapedInfoSnippet}
       let lastNvStatus = 0; // último HTTP status de NVIDIA (para mapear 529 al catch final)
 
       for (const mToTry of nvModelsToTry) {
+        // Hard deadline: abort si quedan menos de 15s
+        if (Date.now() - handlerStart > DEADLINE_MS - 15000) {
+          console.warn(`[FlipMaster] Hard deadline reached (${Date.now() - handlerStart}ms). Skipping remaining models.`);
+          break;
+        }
         try {
           console.log(`[FlipMaster AI] Invocando NVIDIA NIM (DeepSeek) (${mToTry})...`);
           // Retry ante HTTP 529 (sobrecarga temporal de NVIDIA)
@@ -557,7 +564,7 @@ ${scrapedInfoSnippet}
                 temperature: Number(temperature) || 0.2,
                 max_tokens: 2048,
               }),
-              signal: AbortSignal.timeout(20000),
+              signal: (() => { const c = new AbortController(); setTimeout(() => c.abort(), 20000); return c.signal; })(),
             });
             if (res.status === 529 && attempt < 1) {
               console.warn(`[NVIDIA NIM API] HTTP 529 — reintento 1/2 en 1000ms`);
