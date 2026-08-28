@@ -438,7 +438,10 @@ app.post("/api/analyze", async (req, res) => {
 
     // Auto-scrape if URL is provided and title/description are brief or default
     let scrapedInfoSnippet = "";
-    if (url && typeof url === "string" && url.startsWith("http")) {
+    // Skip scraping if frontend already provided title + description
+    // (prevents 60s Vercel timeout from Puppeteer)
+    const hasFullDataFromFrontend = title && title.length > 5 && description && description.length > 20;
+    if (!hasFullDataFromFrontend && url && typeof url === "string" && url.startsWith("http")) {
       try {
         const liveScraped = await scrapeEcommerceUrl(url);
         if (liveScraped.scrapedSuccessfully) {
@@ -462,6 +465,8 @@ app.post("/api/analyze", async (req, res) => {
       } catch (scrapeErr) {
         console.warn("Auto-scrape fallback error:", scrapeErr);
       }
+    } else if (hasFullDataFromFrontend) {
+      console.log("[FlipMaster] Skipping auto-scrape — frontend already provided title + description.");
     }
 
     // Gemini client LAZY: solo se crea si caemos al fallback de Gemini.
