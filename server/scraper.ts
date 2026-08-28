@@ -339,7 +339,7 @@ async function callNvidiaScraperWithFallback(
   nvidiaKey: string,
   prompt: string
 ): Promise<string> {
-  const modelsToTry = ["deepseek-ai/deepseek-v4-flash", "deepseek-ai/deepseek-v4-pro"];
+  const modelsToTry = ["deepseek-ai/deepseek-v4-flash-0731", "deepseek-ai/deepseek-v4-pro-0813"];
   let lastError: any = null;
 
   for (const model of modelsToTry) {

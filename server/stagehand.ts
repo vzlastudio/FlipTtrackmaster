@@ -14,7 +14,7 @@ import { z } from "zod/v4";
 export interface StagehandConfig {
   browserbaseApiKey?: string;
   nvidiaApiKey?: string; // Used as LLM for Stagehand's AI actions
-  model?: string; // e.g. "deepseek-ai/deepseek-v4-flash"
+  model?: string; // e.g. "deepseek-ai/deepseek-v4-flash-0731"
 }
 
 export interface StagehandProductResult {
@@ -125,7 +125,7 @@ async function getStagehand(config?: StagehandConfig) {
     browser,
     ...(nvKey ? {
       model: {
-        modelName: (config?.model || "deepseek-ai/deepseek-v4-flash") as any,
+        modelName: (config?.model || "deepseek-ai/deepseek-v4-flash-0731") as any,
         apiKey: nvKey,
       },
     } : {}),

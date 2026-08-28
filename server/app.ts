@@ -294,7 +294,7 @@ function resolveNvidiaKey(clientKey?: string): string {
 // Test AI Connection Endpoint (NVIDIA NIM — DeepSeek)
 app.post("/api/test-ai", async (req, res) => {
   try {
-    const { apiKey, modelName = "deepseek-ai/deepseek-v4-flash" } = req.body;
+    const { apiKey, modelName = "deepseek-ai/deepseek-v4-flash-0731" } = req.body;
     const key = resolveNvidiaKey(apiKey);
     if (!key) {
       return res.status(400).json({ success: false, error: "No hay API key de NVIDIA configurada. Agrega tu nvapi-..." });
@@ -428,7 +428,7 @@ app.post("/api/analyze", async (req, res) => {
       minCourierFee = 25.0, // USD (mínimo por paquete < 3 lb)
       estimatedWeight = 3.5, // lbs
       exchangeRate = 84.80,
-      modelName = "deepseek-ai/deepseek-v4-flash",
+      modelName = "deepseek-ai/deepseek-v4-flash-0731",
       temperature = 0.3,
     } = req.body;
 
@@ -604,12 +604,12 @@ ${scrapedInfoSnippet}
         });
       }
 
-      let primaryNvModel = "deepseek-ai/deepseek-v4-flash";
-      if (modelName === "deepseek-ai/deepseek-v4-pro") {
-        primaryNvModel = "deepseek-ai/deepseek-v4-pro";
+      let primaryNvModel = "deepseek-ai/deepseek-v4-flash-0731";
+      if (modelName === "deepseek-ai/deepseek-v4-pro-0813") {
+        primaryNvModel = "deepseek-ai/deepseek-v4-pro-0813";
       }
 
-      const nvModelsToTry = [primaryNvModel, "deepseek-ai/deepseek-v4-flash", "deepseek-ai/deepseek-v4-pro"];
+      const nvModelsToTry = [primaryNvModel, "deepseek-ai/deepseek-v4-flash-0731", "deepseek-ai/deepseek-v4-pro-0813"];
       let nvRawText = "";
       let lastNvStatus = 0; // último HTTP status de NVIDIA (para mapear 529 al catch final)
 
