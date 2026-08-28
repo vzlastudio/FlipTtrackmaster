@@ -36,32 +36,61 @@ export function cleanEbayUrl(url: string): string {
 }
 
 /**
- * Validates whether a URL belongs to eBay and represents a valid product listing page.
- * Valid eBay listing URLs must contain 'ebay.' and a product identifier (such as '/itm/' or item ID numbers).
+ * Supported platforms for product scraping
+ */
+export type SupportedPlatform = 'ebay' | 'shopgoodwill' | 'swappa' | 'mercadolibre' | 'amazon' | 'other';
+
+/**
+ * Detects which platform a URL belongs to.
+ */
+export function detectPlatform(url: string): SupportedPlatform {
+  if (!url || typeof url !== 'string') return 'other';
+  const lower = url.toLowerCase();
+  if (lower.includes('ebay.')) return 'ebay';
+  if (lower.includes('shopgoodwill.com')) return 'shopgoodwill';
+  if (lower.includes('swappa.com')) return 'swappa';
+  if (lower.includes('mercadolibre.')) return 'mercadolibre';
+  if (lower.includes('amazon.')) return 'amazon';
+  return 'other';
+}
+
+/**
+ * Validates whether a URL is a valid product listing URL for any supported platform.
+ * Supports: eBay, ShopGoodwill, Swappa, MercadoLibre, Amazon.
+ */
+export function isValidProductUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  let clean = url.trim().toLowerCase();
+  const qIdx = clean.indexOf('?');
+  if (qIdx !== -1) clean = clean.substring(0, qIdx);
+
+  // Must be HTTP/HTTPS
+  if (!clean.startsWith('http://') && !clean.startsWith('https://')) return false;
+
+  const platform = detectPlatform(url);
+
+  switch (platform) {
+    case 'ebay':
+      return clean.includes('/itm/') || clean.includes('/p/') || clean.includes('item=') || /\/itm\/(?:[^\/]+\/)?\d+/.test(clean) || /\b\d{9,13}\b/.test(clean);
+    case 'shopgoodwill':
+      return clean.includes('/item/') && /\/item\/\d+/.test(clean);
+    case 'swappa':
+      return clean.includes('/listing/') || clean.includes('/buy/');
+    case 'mercadolibre':
+      return clean.includes('MLV') || clean.includes('MLA') || clean.includes('/p/') || clean.includes('/itm/');
+    case 'amazon':
+      return clean.includes('/dp/') || clean.includes('/gp/') || clean.includes('/product/');
+    default:
+      // Any URL with a product-like path
+      return /\/\w+\/\d+/.test(clean);
+  }
+}
+
+/**
+ * @deprecated Use isValidProductUrl instead
  */
 export function isValidEbayProductUrl(url: string): boolean {
-  if (!url || typeof url !== "string") return false;
-  const clean = cleanEbayUrl(url).toLowerCase();
-  
-  // Must be an HTTP/HTTPS URL
-  if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
-    return false;
-  }
-
-  // Must contain ebay domain (ebay.com, ebay.co.uk, ebay.es, etc.)
-  if (!clean.includes("ebay.")) {
-    return false;
-  }
-
-  // Must be a product listing (contains /itm/, /p/, item= or item number digit sequence of 9-13 digits)
-  const isProductPattern = 
-    clean.includes("/itm/") ||
-    clean.includes("/p/") ||
-    clean.includes("item=") ||
-    /\/itm\/(?:[^\/]+\/)?\d+/.test(clean) ||
-    /\b\d{9,13}\b/.test(clean);
-
-  return isProductPattern;
+  return isValidProductUrl(url);
 }
 
 /**

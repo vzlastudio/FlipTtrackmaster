@@ -490,6 +490,8 @@ export async function scrapeEcommerceUrl(targetUrl: string, firecrawlApiKey?: st
   const urlLower = cleanTargetUrl.toLowerCase();
   if (urlLower.includes("ebay.")) {
     result.platform = "eBay";
+  } else if (urlLower.includes("shopgoodwill.com")) {
+    result.platform = "ShopGoodwill";
   } else if (urlLower.includes("mercadolibre.")) {
     result.platform = "MercadoLibre";
   } else if (urlLower.includes("swappa.com")) {
@@ -498,7 +500,7 @@ export async function scrapeEcommerceUrl(targetUrl: string, firecrawlApiKey?: st
     result.platform = "Amazon";
   }
 
-  const idMatch = cleanTargetUrl.match(/\/itm\/(?:[^\/]+\/)?(\d+)/i) || cleanTargetUrl.match(/(\d{9,13})/);
+  const idMatch = cleanTargetUrl.match(/\/itm\/(?:[^\/]+\/)?(\d+)/i) || cleanTargetUrl.match(/\/item\/(\d+)/i) || cleanTargetUrl.match(/(\d{9,13})/);
   if (idMatch) {
     result.itemId = idMatch[1];
   }

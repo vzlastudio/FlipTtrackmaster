@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { AppSettings, FlipMasterAnalysis, FlipItem } from "../../types";
 import {
-  isValidEbayProductUrl,
+  isValidProductUrl,
+  detectPlatform,
   cleanEbayUrl,
   scrapeEbayProductProxy,
   validateFlipMasterAnalysisResponse,
@@ -119,8 +120,18 @@ export const AIAnalyzerModule: React.FC<AIAnalyzerModuleProps> = ({
   const handleScrapeUrl = async (customUrl?: string) => {
     const rawTargetUrl = customUrl || url;
     if (!rawTargetUrl || !rawTargetUrl.trim().startsWith("http")) {
-      setError("Por favor ingresa una URL válida (ej: https://www.ebay.com/itm/...)");
+      setError("Por favor ingresa una URL válida (ej: https://www.ebay.com/itm/... o https://shopgoodwill.com/item/...)");
       return;
+    }
+
+    // Auto-detect platform from URL
+    const detectedPlatform = detectPlatform(rawTargetUrl);
+    if (detectedPlatform !== 'other') {
+      const platformNames: Record<string, string> = {
+        ebay: 'eBay', shopgoodwill: 'ShopGoodwill', swappa: 'Swappa',
+        mercadolibre: 'MercadoLibre', amazon: 'Amazon'
+      };
+      setPlatform(platformNames[detectedPlatform] || 'Otro');
     }
 
     const cleanedUrl = cleanEbayUrl(rawTargetUrl);
@@ -128,18 +139,16 @@ export const AIAnalyzerModule: React.FC<AIAnalyzerModuleProps> = ({
       setUrl(cleanedUrl);
     }
 
-    // Pre-validation for eBay URLs
-    if (platform === "eBay" || cleanedUrl.toLowerCase().includes("ebay.")) {
-      if (!isValidEbayProductUrl(cleanedUrl)) {
-        setError(
-          "La URL ingresada no es una página de producto válida de eBay. Asegúrate de incluir un enlace directo de eBay que contenga '/itm/' y el ID del artículo."
-        );
-        setScrapeStatus({
-          success: false,
-          message: "⚠️ URL no válida. Comprueba que el enlace pertenezca a una publicación directa de producto en eBay.",
-        });
-        return;
-      }
+    // Pre-validation for URLs
+    if (cleanedUrl && !isValidProductUrl(cleanedUrl)) {
+      setError(
+        "La URL ingresada no parece ser una página de producto válida. Verifica que sea un enlace directo de eBay, ShopGoodwill, Swappa u otra plataforma."
+      );
+      setScrapeStatus({
+        success: false,
+        message: "⚠️ URL no válida. Comprueba que el enlace pertenezca a una publicación directa de producto.",
+      });
+      return;
     }
 
     setScrapingUrl(true);
@@ -206,14 +215,12 @@ export const AIAnalyzerModule: React.FC<AIAnalyzerModuleProps> = ({
 
     const cleanedUrl = url ? cleanEbayUrl(url) : "";
 
-    // Pre-validation: Verify eBay URL if provided or if platform is eBay
-    if (cleanedUrl && (platform === "eBay" || cleanedUrl.toLowerCase().includes("ebay."))) {
-      if (!isValidEbayProductUrl(cleanedUrl)) {
-        setError(
-          "La URL ingresada no es una página de producto activa y válida de eBay. Verifica que el enlace contenga 'ebay.com' y '/itm/' con un ID de artículo antes de solicitar el análisis a la IA."
-        );
-        return;
-      }
+    // Pre-validation: Verify URL if provided
+    if (cleanedUrl && !isValidProductUrl(cleanedUrl)) {
+      setError(
+        "La URL ingresada no parece ser una página de producto válida. Verifica que sea un enlace directo de eBay, ShopGoodwill, Swappa u otra plataforma."
+      );
+      return;
     }
 
     setLoading(true);
