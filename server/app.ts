@@ -533,7 +533,7 @@ ${scrapedInfoSnippet}
                 model: mToTry,
                 messages: [
                   { role: "system", content: systemInstruction },
-                  { role: "user", content: userPrompt + "\n\nResponde SOLO con el JSON sin texto extra." },
+                  { role: "user", content: userPrompt + "\n\nResponde SOLO con JSON válido con EXACTAMENTE esta estructura (usa los mismos nombres de campo en inglés):\n{\"productIdentification\":{\"brand\":\"\",\"model\":\"\",\"variant\":\"\",\"specs\":\"\",\"declaredCondition\":\"\",\"declaredDefects\":[],\"missingAccessories\":[],\"riskLevel\":\"\",\"riskSignals\":[]},\"restorationCost\":{\"defectsBreakdown\":[],\"optimisticCostUSD\":0,\"pessimisticCostUSD\":0,\"recommendedBudgetUSD\":0},\"shippingToVenezuela\":{\"estimatedWeightLbs\":0,\"internalUSFreightUSD\":0,\"internationalCourierUSD\":0,\"customsAndInsuranceUSD\":0,\"totalLandedShippingUSD\":0,\"courierNotes\":\"\"},\"flipMath\":{\"basePriceUSD\":0,\"totalShippingUSD\":0,\"restorationPessimisticUSD\":0,\"totalLandedCostUSD\":0,\"estimatedMarketPriceVzlaUSD\":0,\"estimatedMarketPriceVzlaVES\":0,\"netProfitUSD\":0,\"roiPercent\":0,\"meetsFlipRule\":false,\"ruleExplanation\":\"\"},\"auctionStrategy\":{\"isAuction\":false,\"maxAbsoluteBidUSD\":0,\"suggestedTactic\":\"\",\"edgeNotes\":\"\"},\"finalVerdict\":{\"decision\":\"\",\"summaryExplanation\":\"\",\"pendingQuestionsForSeller\":[]},\"markdownReport\":\"\"}" },
                 ],
                 temperature: Number(temperature) || 0.2,
                 max_tokens: 2048,
