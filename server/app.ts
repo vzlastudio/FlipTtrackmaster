@@ -516,7 +516,7 @@ ${scrapedInfoSnippet}
       if (modelName === "deepseek-ai/deepseek-v4-pro-0813") {
         primaryNvModel = "deepseek-ai/deepseek-v4-pro-0813";
       }
-      const nvModelsToTry = [primaryNvModel];
+      const nvModelsToTry = [primaryNvModel, "meta/llama-3.2-11b-vision-instruct"];
 
       for (const mToTry of nvModelsToTry) {
         if (Date.now() - handlerStart > DEADLINE_MS - 20000) break;
