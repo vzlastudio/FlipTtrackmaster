@@ -525,15 +525,16 @@ ${scrapedInfoSnippet}
         primaryNvModel = "deepseek-ai/deepseek-v4-pro-0813";
       }
 
-      const nvModelsToTry = [primaryNvModel, "deepseek-ai/deepseek-v4-flash-0731", "deepseek-ai/deepseek-v4-pro-0813"];
+      // Solo el modelo primario — si NVIDIA está en 529, los otros también lo estarán
+      const nvModelsToTry = [primaryNvModel];
       let nvRawText = "";
       let lastNvStatus = 0; // último HTTP status de NVIDIA (para mapear 529 al catch final)
 
       for (const mToTry of nvModelsToTry) {
         try {
           console.log(`[FlipMaster AI] Invocando NVIDIA NIM (DeepSeek) (${mToTry})...`);
-          // Retry + backoff ante HTTP 529 (sobrecarga temporal de NVIDIA)
-          // Máx 2 intentos, 25s timeout por request (Vercel Hobby = 60s total)
+          // Retry ante HTTP 529 (sobrecarga temporal de NVIDIA)
+          // 1 reintento, 20s timeout por request (Vercel Hobby = 60s total)
           let nvRes: Response | null = null;
           for (let attempt = 0; attempt < 2; attempt++) {
             const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
@@ -550,17 +551,17 @@ ${scrapedInfoSnippet}
                     role: "user",
                     content:
                       userPrompt +
-                      "\n\nResponde ÚNICAMENTE con el objeto JSON válido según la estructura FlipMasterAnalysis requerida sin texto introductorio ni bloques extra.",
+                      "\n\nResponde SOLO con el JSON sin texto extra.",
                   },
                 ],
                 temperature: Number(temperature) || 0.2,
                 max_tokens: 2048,
               }),
-              signal: AbortSignal.timeout(25000),
+              signal: AbortSignal.timeout(20000),
             });
             if (res.status === 529 && attempt < 1) {
-              console.warn(`[NVIDIA NIM API] HTTP 529 sobrecarga — reintento 1/2 en 1500ms`);
-              await new Promise((r) => setTimeout(r, 1500));
+              console.warn(`[NVIDIA NIM API] HTTP 529 — reintento 1/2 en 1000ms`);
+              await new Promise((r) => setTimeout(r, 1000));
               continue;
             }
             nvRes = res;
