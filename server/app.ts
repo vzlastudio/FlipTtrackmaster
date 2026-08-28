@@ -502,11 +502,6 @@ Por favor analiza el siguiente producto para FlipTrack:
 ${scrapedInfoSnippet}
 `;
 
-    // Proveedor por defecto: NVIDIA NIM (DeepSeek). Solo se usa Gemini si el
-    // usuario elige explícitamente un modelo "gemini-*" en Ajustes.
-    // Guard de servidor: aunque el frontend mande un modelo gemini-*, sin
-    // GEMINI_API_KEY en el servidor SIEMPRE se usa DeepSeek (NVIDIA NIM).
-    const wantsGemini = modelName.startsWith("gemini") && !!process.env.GEMINI_API_KEY;
     // Guard: si el frontend manda una key fake/placeholder, se usa la env var real.
     const nvidiaKey = resolveNvidiaKey(req.body.nvidiaApiKey);
 
@@ -514,164 +509,108 @@ ${scrapedInfoSnippet}
     // el guard determinista de bloqueo de red / iCloud.
     const rawListingText = `${title || ""} ${description || ""} ${scrapedInfoSnippet || ""}`;
 
-    if (!wantsGemini) {
-      if (!nvidiaKey) {
-        return res.status(400).json({
-          success: false,
-          error: "No hay API key de NVIDIA configurada. Configúrala en Ajustes o en la env var NVIDIA_API_KEY (build.nvidia.com).",
-        });
-      }
-
+    // ── PASO 1: Intentar NVIDIA NIM (DeepSeek) ──────────────────────────────
+    let nvidiaSuccess = false;
+    if (nvidiaKey) {
       let primaryNvModel = "deepseek-ai/deepseek-v4-flash-0731";
       if (modelName === "deepseek-ai/deepseek-v4-pro-0813") {
         primaryNvModel = "deepseek-ai/deepseek-v4-pro-0813";
       }
-
-      // Solo el modelo primario — si NVIDIA está en 529, los otros también lo estarán
       const nvModelsToTry = [primaryNvModel];
-      let nvRawText = "";
-      let lastNvStatus = 0; // último HTTP status de NVIDIA (para mapear 529 al catch final)
 
       for (const mToTry of nvModelsToTry) {
-        // Hard deadline: abort si quedan menos de 15s
-        if (Date.now() - handlerStart > DEADLINE_MS - 15000) {
-          console.warn(`[FlipMaster] Hard deadline reached (${Date.now() - handlerStart}ms). Skipping remaining models.`);
-          break;
-        }
+        if (Date.now() - handlerStart > DEADLINE_MS - 20000) break;
         try {
-          console.log(`[FlipMaster AI] Invocando NVIDIA NIM (DeepSeek) (${mToTry})...`);
-          // Retry ante HTTP 529 (sobrecarga temporal de NVIDIA)
-          // 1 reintento, 20s timeout por request (Vercel Hobby = 60s total)
+          console.log(`[FlipMaster AI] Invocando NVIDIA NIM (${mToTry})...`);
           let nvRes: Response | null = null;
           for (let attempt = 0; attempt < 2; attempt++) {
-            const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 18000);
+            const nvFetchRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${nvidiaKey.trim()}`,
-              },
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${nvidiaKey.trim()}` },
               body: JSON.stringify({
                 model: mToTry,
                 messages: [
                   { role: "system", content: systemInstruction },
-                  {
-                    role: "user",
-                    content:
-                      userPrompt +
-                      "\n\nResponde SOLO con el JSON sin texto extra.",
-                  },
+                  { role: "user", content: userPrompt + "\n\nResponde SOLO con el JSON sin texto extra." },
                 ],
                 temperature: Number(temperature) || 0.2,
                 max_tokens: 2048,
               }),
-              signal: (() => { const c = new AbortController(); setTimeout(() => c.abort(), 20000); return c.signal; })(),
-            });
-            if (res.status === 529 && attempt < 1) {
-              console.warn(`[NVIDIA NIM API] HTTP 529 — reintento 1/2 en 1000ms`);
+              signal: controller.signal,
+            }).finally(() => clearTimeout(timer));
+            if (nvFetchRes.status === 529 && attempt < 1) {
               await new Promise((r) => setTimeout(r, 1000));
               continue;
             }
-            nvRes = res;
+            nvRes = nvFetchRes;
             break;
           }
-
           if (nvRes && nvRes.ok) {
             const nvJson = await nvRes.json();
-            // DeepSeek v4-flash puts response in reasoning_content, content may be null
-            nvRawText = nvJson.choices?.[0]?.message?.content || nvJson.choices?.[0]?.message?.reasoning_content || "";
-            if (nvRawText) break;
-          } else {
-            const errBody = nvRes ? await nvRes.text() : "";
-            if (nvRes) lastNvStatus = nvRes.status;
-            console.warn(`[NVIDIA NIM API] Model ${mToTry} error (${nvRes ? nvRes.status : "no response"}):`, errBody.slice(0, 150));
+            const nvRawText = nvJson.choices?.[0]?.message?.content || nvJson.choices?.[0]?.message?.reasoning_content || "";
+            if (nvRawText) {
+              const clean = nvRawText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+              const parsed = extractJsonFromText(clean) || extractJsonFromText(nvRawText);
+              if (parsed && (parsed.productIdentification || parsed.flipMath)) {
+                enforceLockGuard(parsed, rawListingText, title);
+                return res.json({ success: true, data: parsed, provider: "NVIDIA NIM (DeepSeek)" });
+              }
+            }
           }
         } catch (nvErr: any) {
-          console.warn(`[NVIDIA NIM API] Fetch error for ${mToTry}:`, nvErr.message || nvErr);
+          console.warn(`[NVIDIA NIM] Error:`, nvErr.message || nvErr);
         }
       }
-
-      if (nvRawText) {
-        // Strip thinking tags if deepseek returns <think>...</think>
-        const cleanNvText = nvRawText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-        const parsedNvData = extractJsonFromText(cleanNvText) || extractJsonFromText(nvRawText);
-
-        if (parsedNvData && (parsedNvData.productIdentification || parsedNvData.flipMath)) {
-          enforceLockGuard(parsedNvData, rawListingText, title);
-          return res.json({ success: true, data: parsedNvData, provider: "NVIDIA NIM (DeepSeek)" });
-        }
-      }
-
-      console.warn("[FlipMaster AI] NVIDIA DeepSeek no devolvió respuesta estructurada.");
-      // DeepSeek es el proveedor por defecto: si falla, no caer silenciosamente a Gemini.
-      // Si el último status fue 529 (sobrecarga), lanzamos un error que el catch final
-      // detecta con is529 para mostrar el mensaje claro de reintento.
-      if (lastNvStatus === 529) {
-        throw new Error("NVIDIA NIM temporalmente sobrecargado (HTTP 529). Espera 30s e intenta de nuevo.");
-      }
-      throw new Error("NVIDIA NIM (DeepSeek) no devolvió una respuesta estructurada. Revisa la API key (nvapi-...) en Ajustes o la env var NVIDIA_API_KEY.");
+      console.warn("[FlipMaster AI] NVIDIA no devolvió respuesta válida. Intentando Gemini como fallback...");
     }
 
-    // Ruta Gemini — SOLO cuando el usuario eligió explícitamente un modelo "gemini-*".
-    // Ejecuta con retry automático y fallback de modelos para 503/429.
-    const modelsToTry = [modelName, "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"].filter(
-      (m, idx, arr) => m && arr.indexOf(m) === idx
-    );
+    // ── PASO 2: Gemini como fallback (si NVIDIA falló o no está configurado) ──
+    if (!nvidiaSuccess && process.env.GEMINI_API_KEY) {
+      const geminiModels = ["gemini-3.6-flash", "gemini-3.1-flash-lite"].filter((m, i, a) => a.indexOf(m) === i);
+      let response: any = null;
+      let lastError: any = null;
 
-    let response: any = null;
-    let lastError: any = null;
-
-    for (const mName of modelsToTry) {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          if (!ai) ai = getGeminiClient();
-          response = await ai.models.generateContent({
-            model: mName,
-            contents: userPrompt,
-            config: {
-              systemInstruction,
-              temperature: Number(temperature) || 0.3,
-              responseMimeType: "application/json",
-            },
-          });
-          if (response && response.text) break;
-        } catch (mErr: any) {
-          lastError = mErr;
-          const errStr = String(mErr.message || mErr);
-          console.warn(`[FlipMaster AI] Model ${mName} (attempt ${attempt + 1}) error: ${errStr.slice(0, 150)}`);
-
-          if (
-            errStr.includes("503") ||
-            errStr.includes("UNAVAILABLE") ||
-            errStr.includes("high demand") ||
-            errStr.includes("429")
-          ) {
-            await new Promise((resolve) => setTimeout(resolve, 1200 * (attempt + 1)));
-          } else {
-            break;
+      for (const mName of geminiModels) {
+        if (Date.now() - handlerStart > DEADLINE_MS - 15000) break;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (!ai) ai = getGeminiClient();
+            response = await ai.models.generateContent({
+              model: mName,
+              contents: userPrompt,
+              config: { systemInstruction, temperature: Number(temperature) || 0.3, responseMimeType: "application/json" },
+            });
+            if (response && response.text) break;
+          } catch (mErr: any) {
+            lastError = mErr;
+            const errStr = String(mErr.message || mErr);
+            console.warn(`[Gemini] ${mName} attempt ${attempt + 1} error: ${errStr.slice(0, 100)}`);
+            if (errStr.includes("503") || errStr.includes("429")) {
+              await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+            } else break;
           }
         }
+        if (response && response.text) break;
       }
-      if (response && response.text) break;
+
+      if (response && response.text) {
+        const rawText = response.text || "{}";
+        let parsedData;
+        try { parsedData = JSON.parse(rawText); } catch {
+          parsedData = { rawOutput: rawText, finalVerdict: { decision: "DEPENDE", summaryExplanation: "Respuesta no estructurada de Gemini." } };
+        }
+        enforceLockGuard(parsedData, rawListingText, title);
+        return res.json({ success: true, data: parsedData, provider: "Gemini (fallback)" });
+      }
     }
 
-    if (!response || !response.text) {
-      throw lastError || new Error("No se pudo obtener respuesta de los modelos de IA.");
+    // ── PASO 3: Ambos fallaron ──────────────────────────────────────────────
+    if (!nvidiaKey && !process.env.GEMINI_API_KEY) {
+      return res.status(400).json({ success: false, error: "No hay API key configurada. Configura NVIDIA (nvapi-...) o Gemini en Ajustes." });
     }
-
-    const rawText = response.text || "{}";
-    let parsedData;
-    try {
-      parsedData = JSON.parse(rawText);
-    } catch {
-      parsedData = {
-        rawOutput: rawText,
-        finalVerdict: { decision: "DEPENDE", summaryExplanation: "Respuesta no estructurada recibida de la IA." },
-      };
-    }
-
-    enforceLockGuard(parsedData, rawListingText, title);
-
-    return res.json({ success: true, data: parsedData });
+    throw new Error("Ambos proveedores de IA fallaron. NVIDIA NIM puede estar sobrecargado (529). Espera 30s e intenta de nuevo.");
   } catch (error: any) {
     console.error("FlipMaster API Error:", error);
     const errStr = String(error.message || error);
