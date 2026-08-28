@@ -610,7 +610,7 @@ ${scrapedInfoSnippet}
     if (!nvidiaKey && !process.env.GEMINI_API_KEY) {
       return res.status(400).json({ success: false, error: "No hay API key configurada. Configura NVIDIA (nvapi-...) o Gemini en Ajustes." });
     }
-    throw new Error("Ambos proveedores de IA fallaron. NVIDIA NIM puede estar sobrecargado (529). Espera 30s e intenta de nuevo.");
+    throw new Error("Ambos proveedores de IA fallaron. NVIDIA puede estar sobrecargado. Espera 30s e intenta de nuevo.");
   } catch (error: any) {
     console.error("FlipMaster API Error:", error);
     const errStr = String(error.message || error);
