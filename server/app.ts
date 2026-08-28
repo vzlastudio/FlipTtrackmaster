@@ -768,3 +768,22 @@ ${scrapedInfoSnippet}
     });
   }
 });
+
+// ── Global Error Handler (siempre devuelve JSON) ────────────────────────────
+// Express requires exactly 4 parameters to identify an error handler.
+// Without this, unhandled errors return plain text like "An error occurred..."
+// which breaks the frontend JSON.parse().
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[FlipMaster Global Error Handler]", err);
+  const status = err?.status || err?.statusCode || 500;
+  const message = err?.message || "Error interno del servidor.";
+  if (!res.headersSent) {
+    res.status(status).json({ success: false, error: message });
+  }
+});
+
+// ── 404 catch-all (devuelve JSON, no HTML) ─────────────────────────────────
+app.use((_req: express.Request, res: express.Response) => {
+  res.status(404).json({ success: false, error: "Endpoint no encontrado." });
+});
