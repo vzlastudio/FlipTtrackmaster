@@ -577,7 +577,8 @@ ${scrapedInfoSnippet}
 
           if (nvRes && nvRes.ok) {
             const nvJson = await nvRes.json();
-            nvRawText = nvJson.choices?.[0]?.message?.content || "";
+            // DeepSeek v4-flash puts response in reasoning_content, content may be null
+            nvRawText = nvJson.choices?.[0]?.message?.content || nvJson.choices?.[0]?.message?.reasoning_content || "";
             if (nvRawText) break;
           } else {
             const errBody = nvRes ? await nvRes.text() : "";
