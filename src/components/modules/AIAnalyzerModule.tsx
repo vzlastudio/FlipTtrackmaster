@@ -249,7 +249,14 @@ export const AIAnalyzerModule: React.FC<AIAnalyzerModuleProps> = ({
         }),
       });
 
-      const json = await res.json();
+      // Safe JSON parse: Vercel timeout returns plain text, not JSON
+      const rawText = await res.text();
+      let json: any;
+      try {
+        json = JSON.parse(rawText);
+      } catch {
+        throw new Error(`El servidor no respondió con JSON válido (${res.status}). ${rawText.slice(0, 200)}`);
+      }
       if (!json.success || !json.data) {
         throw new Error(json.error || "No se pudo obtener el análisis de FlipMaster. Verifica que la publicación esté activa.");
       }

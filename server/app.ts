@@ -533,8 +533,9 @@ ${scrapedInfoSnippet}
         try {
           console.log(`[FlipMaster AI] Invocando NVIDIA NIM (DeepSeek) (${mToTry})...`);
           // Retry + backoff ante HTTP 529 (sobrecarga temporal de NVIDIA)
+          // Máx 2 intentos, 25s timeout por request (Vercel Hobby = 60s total)
           let nvRes: Response | null = null;
-          for (let attempt = 0; attempt < 3; attempt++) {
+          for (let attempt = 0; attempt < 2; attempt++) {
             const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
               method: "POST",
               headers: {
@@ -555,11 +556,11 @@ ${scrapedInfoSnippet}
                 temperature: Number(temperature) || 0.2,
                 max_tokens: 2048,
               }),
+              signal: AbortSignal.timeout(25000),
             });
-            if (res.status === 529 && attempt < 2) {
-              const waitMs = 1500 * (attempt + 1);
-              console.warn(`[NVIDIA NIM API] HTTP 529 sobrecarga — reintento ${attempt + 1}/3 en ${waitMs}ms`);
-              await new Promise((r) => setTimeout(r, waitMs));
+            if (res.status === 529 && attempt < 1) {
+              console.warn(`[NVIDIA NIM API] HTTP 529 sobrecarga — reintento 1/2 en 1500ms`);
+              await new Promise((r) => setTimeout(r, 1500));
               continue;
             }
             nvRes = res;
@@ -596,7 +597,7 @@ ${scrapedInfoSnippet}
       // Si el último status fue 529 (sobrecarga), lanzamos un error que el catch final
       // detecta con is529 para mostrar el mensaje claro de reintento.
       if (lastNvStatus === 529) {
-        throw new Error("NVIDIA NIM Service temporarily overloaded (HTTP 529). Se reintentó 3 veces sin éxito.");
+        throw new Error("NVIDIA NIM temporalmente sobrecargado (HTTP 529). Espera 30s e intenta de nuevo.");
       }
       throw new Error("NVIDIA NIM (DeepSeek) no devolvió una respuesta estructurada. Revisa la API key (nvapi-...) en Ajustes o la env var NVIDIA_API_KEY.");
     }
