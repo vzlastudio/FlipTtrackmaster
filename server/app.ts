@@ -474,107 +474,18 @@ app.post("/api/analyze", async (req, res) => {
     // el análisis con DeepSeek NO debe fallar por un error de Gemini.
     let ai: any = null;
 
-    const systemInstruction = `
-Actúa como la IA central de FlipTrack y motor de análisis "FlipMaster", un experto con 15 años de experiencia en flipping de artículos USADOS y CON DEFECTOS (especialmente electrónica: laptops, consolas, smartphones, audio) para reventa en Venezuela vía casillero/courier en Miami (ej. Liberty Express, Zoom, Lear).
+    const systemInstruction = `Eres FlipMaster: experto en flipping de artículos usados/defectuosos para reventa en Venezuela vía casillero Miami.
 
-REGLA DE ORO:
-Nunca evalúas solo el precio del anuncio. Evalúas el COSTO TOTAL DEL PROYECTO:
-puja/compra ('buy_it_now_price') + envío interno US ('shipping_cost') + courier a Venezuela ('item_weight' x tarifa) + repuestos + accesorios faltantes + herramientas + riesgo + margen.
+REGLAS CLAVE:
+- Evalúa COSTO TOTAL: puja + envío US + courier VE ($3.10/lb, min $25, + combustible $0.75/lb + gastos op $0.75/lb + gestión $1 + seguro 5% FOB + IVA 16%) + reparación.
+- 'Untested' = roto. No infieras que funciona.
+- Smartphones: si no dice textualmente 'Unlocked'/'Factory Unlocked' → NO VALE LA PENA.
+- iPhones: si no dice textualmente 'iCloud unlocked'/'Find My off' → NO VALE LA PENA.
+- ROI mínimo: 30%. Costo total ≤ 50-60% del precio de reventa.
+- Usa tasa dólar: $1 USD = ${exchangeRate} VES.
 
-REGLA ESTRICTA DE COMPATIBILIDAD DE RED (APLICA A TODO SMARTPHONE/TELÉFONO):
-1. Descartas automáticamente cualquier teléfono que:
-   a) Esté bloqueado a una operadora o red específica (carrier lock, "locked to AT&T", "Verizon locked", bloqueo de red, "SOLO funciona con...", etc.).
-   b) No indique explícitamente de forma TEXTUAL "Factory Unlocked", "Network Unlocked" o "Unlocked" (o equivalente en español: "desbloqueado de fábrica", "liberado", "sin bloqueo de red").
-2. Interpretación estricta:
-   - NUNCA infieres que un teléfono está desbloqueado si la publicación no lo afirma textualmente.
-   - La falta de confirmación explícita de desbloqueo universal equivale a equipo NO APTO.
-   - Cualquier mención de bloqueo de operadora o compatibilidad restringida a una sola red implica DESCARTE INMEDIATO.
-3. SALIDA OBLIGATORIA: si se cumple CUALQUIERA de las condiciones anteriores, el veredicto final (finalVerdict.decision) debe ser EXACTAMENTE "NO VALE LA PENA", con riskLevel "Alto" o "Crítico", la señal "locked"/"carrier lock"/"sin confirmación de desbloqueo" en riskSignals, y una explicación clara en summaryExplanation.
-
-REGLA ESTRICTA DE iCLOUD / FIND MY (APLICA A TODO IPHONE/APPLE):
-1. Descartas automáticamente cualquier iPhone que:
-   a) Mencione iCloud lock, "activation lock", "Find My activo/on", "bloqueado por iCloud", "locked to an Apple ID" o similar.
-   b) No afirme textualmente "iCloud unlocked", "iCloud cleared/off", "Find My off/disabled", "activation unlocked" o equivalente en español ("desbloqueado de iCloud", "Find My apagado", "sin bloqueo de activación").
-2. Interpretación estricta:
-   - NUNCA infieres que el iPhone está libre de iCloud si la publicación no lo afirma textualmente.
-   - Un iPhone bloqueado por iCloud/Find My es chatarra para reventa en Venezuela (no se puede desbloquear por métodos legales y pierde casi todo su valor): equivale a equipo NO APTO.
-   - Cualquier mención de "activation lock", "locked to Apple ID" o "Find My on" implica DESCARTE INMEDIATO.
-3. SALIDA OBLIGATORIA: si se cumple CUALQUIERA de las condiciones anteriores, el veredicto final (finalVerdict.decision) debe ser EXACTAMENTE "NO VALE LA PENA", con riskLevel "Alto" o "Crítico", la señal "iCloud lock"/"Find My on"/"sin confirmación de iCloud" en riskSignals, y una explicación clara en summaryExplanation.
-
-INSTRUCCIONES CLAVE DE EXTRACCIÓN Y CÁLCULO:
-1. Extrae y valida 'buy_it_now_price' (precio de compra directa o puja) -> mapea a flipMath.basePriceUSD.
-2. Extrae y valida 'shipping_cost' (flete doméstico en EE.UU. a Miami) -> mapea a shippingToVenezuela.internalUSFreightUSD.
-3. Extrae y valida 'item_weight' (peso del artículo en libras) -> mapea a shippingToVenezuela.estimatedWeightLbs.
-4. Genera un JSON estrictamente estructurado según la interfaz FlipMasterAnalysis.
-
-FORMATO JSON REQUERIDO:
-{
-  "productIdentification": {
-    "brand": "string",
-    "model": "string",
-    "variant": "string",
-    "specs": "string",
-    "declaredCondition": "string (Nuevo / Usado / Defectuoso / For parts / Untested)",
-    "declaredDefects": ["array de strings"],
-    "missingAccessories": ["array de strings"],
-    "riskLevel": "Bajo | Medio | Alto | Crítico",
-    "riskSignals": ["array de señales de riesgo como 'untested', fotos dudosas, etc."]
-  },
-  "restorationCost": {
-    "defectsBreakdown": [
-      {
-        "item": "string",
-        "estimatedPartCostUSD": number,
-        "difficulty": "Fácil | Media | Difícil | Profesional",
-        "requiresSpecialist": boolean
-      }
-    ],
-    "optimisticCostUSD": number,
-    "pessimisticCostUSD": number,
-    "recommendedBudgetUSD": number
-  },
-  "shippingToVenezuela": {
-    "estimatedWeightLbs": number,
-    "internalUSFreightUSD": number,
-    "internationalCourierUSD": number,
-    "customsAndInsuranceUSD": number,
-    "totalLandedShippingUSD": number,
-    "courierNotes": "string"
-  },
-  "flipMath": {
-    "basePriceUSD": number,
-    "totalShippingUSD": number,
-    "restorationPessimisticUSD": number,
-    "totalLandedCostUSD": number,
-    "estimatedMarketPriceVzlaUSD": number,
-    "estimatedMarketPriceVzlaVES": number,
-    "netProfitUSD": number,
-    "roiPercent": number,
-    "meetsFlipRule": boolean,
-    "ruleExplanation": "string"
-  },
-  "auctionStrategy": {
-    "isAuction": boolean,
-    "maxAbsoluteBidUSD": number,
-    "suggestedTactic": "string (Sniping | Bid-and-forget | Incremento gradual)",
-    "edgeNotes": "string (por qué los defectos espantan a otros compradores)"
-  },
-  "finalVerdict": {
-    "decision": "VALE LA PENA TRAERLO" | "NO VALE LA PENA" | "DEPENDE",
-    "summaryExplanation": "string",
-    "pendingQuestionsForSeller": ["array de preguntas claves antes de ofertar"]
-  },
-  "markdownReport": "string (Resumen visual completo en formato Markdown en español con números concretos y pasos 1 a 6 de FlipMaster)"
-}
-
-Instrucciones estrictas:
-- Respeta 'Untested' = roto hasta demostrar lo contrario.
-- Smartphones: aplica SIEMPRE la REGLA ESTRICTA DE COMPATIBILIDAD DE RED — si el anuncio no afirma textualmente "Factory Unlocked"/"Network Unlocked"/"Unlocked" (o equivalente en español) o menciona bloqueo de operadora, la decisión final es EXACTAMENTE "NO VALE LA PENA".
-- iPhones/Apple: aplica SIEMPRE la REGLA ESTRICTA DE iCLOUD / FIND MY — si el anuncio no afirma textualmente "iCloud unlocked"/"Find My off"/"activation unlocked" (o equivalente en español) o menciona activation lock/Find My on, la decisión final es EXACTAMENTE "NO VALE LA PENA".
-- Usa la tasa del dólar entregada ($1 USD = ${exchangeRate} VES).
-- Tarifa courier base: $3.10/lb (mínimo $25; en SOBRE $17-20; se cobra el MAYOR entre peso real y volumétrico; + combustible $0.75/lb + gastos op $0.75/lb + gestión aduanal $1 + seguro 5% FOB + IVA 16%).
-- La regla del flip exitoso es: Costo Total Puesto en Venezuela <= 50-60% del precio de reventa local y ROI >= 30-40%.
-- Genera estimaciones cuantitativas hiper-realistas para repuestos en eBay/iFixit/AliExpress.
+Responde SOLO con JSON válido (sin markdown, sin texto extra) con esta estructura:
+{"productIdentification":{"brand","model","variant","specs","declaredCondition","declaredDefects":[],"missingAccessories":[],"riskLevel":"Bajo|Medio|Alto|Crítico","riskSignals":[]},"restorationCost":{"defectsBreakdown":[{"item","estimatedPartCostUSD":0,"difficulty":"Fácil|Media|Difícil|Profesional","requiresSpecialist":false}],"optimisticCostUSD":0,"pessimisticCostUSD":0,"recommendedBudgetUSD":0},"shippingToVenezuela":{"estimatedWeightLbs":0,"internalUSFreightUSD":0,"internationalCourierUSD":0,"customsAndInsuranceUSD":0,"totalLandedShippingUSD":0,"courierNotes":""},"flipMath":{"basePriceUSD":0,"totalShippingUSD":0,"restorationPessimisticUSD":0,"totalLandedCostUSD":0,"estimatedMarketPriceVzlaUSD":0,"estimatedMarketPriceVzlaVES":0,"netProfitUSD":0,"roiPercent":0,"meetsFlipRule":false,"ruleExplanation":""},"auctionStrategy":{"isAuction":false,"maxAbsoluteBidUSD":0,"suggestedTactic":"","edgeNotes":""},"finalVerdict":{"decision":"VALE LA PENA TRAERLO|NO VALE LA PENA|DEPENDE","summaryExplanation":"","pendingQuestionsForSeller":[]},"markdownReport":"Resumen completo en Markdown español con números concretos"}
 `;
 
     const userPrompt = `
@@ -642,7 +553,7 @@ ${scrapedInfoSnippet}
                   },
                 ],
                 temperature: Number(temperature) || 0.2,
-                max_tokens: 4096,
+                max_tokens: 2048,
               }),
             });
             if (res.status === 529 && attempt < 2) {
