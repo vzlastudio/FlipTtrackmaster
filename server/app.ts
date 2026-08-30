@@ -141,6 +141,52 @@ const ICLOUD_UNLOCK_SIGNALS = [
   /\bsin\s+bloqueo\s+de\s+activaci[oó]n\b/i,
 ];
 
+// ── Compute flipMath from raw data when AI returns zeros ──
+function computeFlipMath(parsed: any, exchangeRate: number): void {
+  if (!parsed || !parsed.flipMath) return;
+  const fm = parsed.flipMath;
+
+  // If roiPercent and netProfitUSD are both 0, the AI didn't compute them
+  if (fm.roiPercent === 0 && fm.netProfitUSD === 0 && fm.estimatedMarketPriceVzlaUSD === 0) {
+    console.warn("[FlipMaster] AI returned zero flipMath — computing server-side...");
+
+    // Base price from productIdentification or flipMath
+    const basePrice = fm.basePriceUSD || 0;
+
+    // Shipping
+    const shipping = fm.totalShippingUSD ||
+      (parsed.shippingToVenezuela?.totalLandedShippingUSD) || 0;
+
+    // Restoration
+    const restoration = fm.restorationPessimisticUSD ||
+      (parsed.restorationCost?.pessimisticCostUSD) || 0;
+
+    // Total landed cost
+    const totalLanded = basePrice + shipping + restoration;
+    fm.totalLandedCostUSD = totalLanded;
+    if (!fm.totalShippingUSD) fm.totalShippingUSD = shipping;
+    if (!fm.restorationPessimisticUSD) fm.restorationPessimisticUSD = restoration;
+
+    // Market price in Vzla — use a reasonable estimate if AI didn't provide one
+    // For electronics: typically 1.5x-2x the landed cost is the resale price
+    if (fm.estimatedMarketPriceVzlaUSD === 0 && totalLanded > 0) {
+      // Conservative: 1.5x landed cost as minimum resale
+      fm.estimatedMarketPriceVzlaUSD = Math.round(totalLanded * 1.5 * 100) / 100;
+    }
+    fm.estimatedMarketPriceVzlaVES = Math.round(fm.estimatedMarketPriceVzlaUSD * exchangeRate * 100) / 100;
+
+    // Net profit
+    // Rough: ~15% eBay fees + ~$8 shipping to buyer
+    const fees = fm.estimatedMarketPriceVzlaUSD * 0.15;
+    fm.netProfitUSD = Math.round((fm.estimatedMarketPriceVzlaUSD - totalLanded - fees - 8) * 100) / 100;
+
+    // ROI
+    if (totalLanded > 0) {
+      fm.roiPercent = Math.round((fm.netProfitUSD / totalLanded) * 10000) / 100;
+    }
+  }
+}
+
 function enforceLockGuard(parsed: any, rawText: string, title?: string): boolean {
   if (!parsed || typeof parsed !== "object") return false;
   const txt = String(rawText || "").toLowerCase();
@@ -555,6 +601,7 @@ ${scrapedInfoSnippet}
               const parsed = extractJsonFromText(clean) || extractJsonFromText(nvRawText);
               if (parsed && (parsed.productIdentification || parsed.flipMath)) {
                 enforceLockGuard(parsed, rawListingText, title);
+                computeFlipMath(parsed, exchangeRate);
                 return res.json({ success: true, data: parsed, provider: "NVIDIA NIM (DeepSeek)" });
               }
             }
@@ -602,6 +649,7 @@ ${scrapedInfoSnippet}
           parsedData = { rawOutput: rawText, finalVerdict: { decision: "DEPENDE", summaryExplanation: "Respuesta no estructurada de Gemini." } };
         }
         enforceLockGuard(parsedData, rawListingText, title);
+        computeFlipMath(parsedData, exchangeRate);
         return res.json({ success: true, data: parsedData, provider: "Gemini (fallback)" });
       }
     }

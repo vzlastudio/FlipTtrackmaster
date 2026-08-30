@@ -33,14 +33,18 @@ export function usePersistentState<T extends { id: string }>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeName]);
 
-  // Save to IndexedDB on every change
+  // Save to IndexedDB on every change (clear first to remove deleted items)
   useEffect(() => {
     if (!loadedRef.current) return;
     (async () => {
       try {
         const currentData = data;
-        // Batch save all items
-        await saveMany(storeName, currentData);
+        // Clear store first, then save — ensures deleted items are actually removed
+        const { clearStore } = await import("../lib/db");
+        await clearStore(storeName);
+        if (currentData.length > 0) {
+          await saveMany(storeName, currentData);
+        }
       } catch (err) {
         console.error(`Error saving ${storeName} to IndexedDB:`, err);
       }
