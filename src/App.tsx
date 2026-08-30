@@ -12,7 +12,7 @@ import {
 } from "./types";
 import { initialSettings } from "./data/initialData";
 import { usePersistentState, usePersistentSingle } from "./hooks/usePersistentState";
-import { registerEvent } from "./lib/db";
+import { registerEvent, clearStore } from "./lib/db";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
 import { LandingPage } from "./components/LandingPage";
@@ -88,6 +88,27 @@ export default function App() {
   const [selectedFlipForModal, setSelectedFlipForModal] = useState<FlipItem | null>(null);
 
   // No seed — user starts with empty state, data persists in IndexedDB
+  // One-time cleanup: remove old mock data from IndexedDB if present
+  useEffect(() => {
+    const CLEANUP_KEY = "fliptrack_mock_cleanup_v2";
+    if (!localStorage.getItem(CLEANUP_KEY)) {
+      (async () => {
+        const { getAll } = await import("./lib/db");
+        const flips = await getAll<{id: string}>("flips");
+        const hasMock = flips.some((f) => f.id?.startsWith("flip-00"));
+        if (hasMock) {
+          await clearStore("flips");
+          await clearStore("transactions");
+          await clearStore("clients");
+          await clearStore("documents");
+          localStorage.setItem(CLEANUP_KEY, "true");
+          window.location.reload();
+        } else {
+          localStorage.setItem(CLEANUP_KEY, "true");
+        }
+      })();
+    }
+  }, []);
 
   // Ajustes persistidos en IndexedDB (singleton "global") — las API keys y
   // tasas sobreviven al recargar la página. Se siembran desde initialSettings.
