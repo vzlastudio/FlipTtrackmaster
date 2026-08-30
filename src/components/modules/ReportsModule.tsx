@@ -46,12 +46,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ flips, settings })
       date: string;
     }[] = [];
 
-    // Historical fallback baseline points to render smooth trends if few flips are marked sold
-    const baseHistorical = [
-      { name: "Mayo '26", roi: 32.5, profit: 120, cost: 370, title: "Dell XPS 13 9310", date: "2026-05-15" },
-      { name: "Junio '26", roi: 48.0, profit: 210, cost: 437, title: "MacBook Air M1 2020", date: "2026-06-10" },
-      { name: "Julio '26", roi: 54.2, profit: 260, cost: 480, title: "PS5 Disc Edition", date: "2026-07-02" },
-    ];
+    // No fallback mock data — only real sales appear in the chart
 
     soldFlips.forEach((f, idx) => {
       const landed = f.analysis?.flipMath.totalLandedCostUSD || f.purchase?.totalUSD || 300;
@@ -69,9 +64,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ flips, settings })
       });
     });
 
-    if (list.length < 3) {
-      return [...baseHistorical, ...list];
-    }
     return list;
   }, [soldFlips]);
 

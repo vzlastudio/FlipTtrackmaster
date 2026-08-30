@@ -60,35 +60,7 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
   const [fabOpen, setFabOpen] = useState(false);
 
   // Custom Price Alerts State
-  const [priceAlerts, setPriceAlerts] = useState<PriceAlertItem[]>([
-    {
-      id: "ALERT-101",
-      title: "MacBook Air M1 2020 8GB/256GB (Pantalla limpia)",
-      targetPriceUSD: 230,
-      currentPriceUSD: 195,
-      sourceUrl: "https://www.ebay.com/itm/macbook-air-m1",
-      platform: "eBay Subasta",
-      createdAt: "2026-07-29",
-    },
-    {
-      id: "ALERT-102",
-      title: "PlayStation 5 Slim Digital (Edición Usada - Con mando)",
-      targetPriceUSD: 310,
-      currentPriceUSD: 285,
-      sourceUrl: "https://www.ebay.com/itm/ps5-slim-digital",
-      platform: "eBay Cómpralo Ya",
-      createdAt: "2026-07-30",
-    },
-    {
-      id: "ALERT-103",
-      title: "iPhone 13 Pro 128GB Libre (Batería 85%+)",
-      targetPriceUSD: 360,
-      currentPriceUSD: 340,
-      sourceUrl: "https://www.ebay.com/itm/iphone-13-pro-128gb",
-      platform: "eBay Subasta",
-      createdAt: "2026-07-31",
-    },
-  ]);
+  const [priceAlerts, setPriceAlerts] = useState<PriceAlertItem[]>([]);
 
   const handleCreatePriceAlert = (newAlert: {
     title: string;

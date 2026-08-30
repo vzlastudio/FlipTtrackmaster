@@ -37,48 +37,7 @@ interface AIAnalyzerModuleProps {
   onConvertToFlip: (analysis: FlipMasterAnalysis, url: string, title: string) => void;
 }
 
-const PRESET_EXAMPLES = [
-  {
-    label: "MacBook Air M1 - Pantalla Rota",
-    url: "https://www.ebay.com/itm/385920194821",
-    title: "2020 Apple MacBook Air M1 8GB/256GB - Broken Retina LCD Display",
-    description: "MacBook Air A2337 enciende, suena tono de arranque y teclado ilumina. La pantalla interna tiene fisura por caída. Incluye caja original sin cargador.",
-    price: "210",
-    platform: "eBay",
-    condition: "Usado - Con Defecto",
-    weight: "4.2",
-  },
-  {
-    label: "Steam Deck 512GB - Untested / No Enciende",
-    url: "https://www.ebay.com/itm/1958291048",
-    title: "Valve Steam Deck 512GB NVMe - Untested / For Parts Only - No Power",
-    description: "Recibido en lote de devolución. No tenemos el cargador original de 45W para probarlo. Se vende estrictamente 'For Parts or Repair'. Pantalla sin rayones.",
-    price: "145",
-    platform: "eBay",
-    condition: "Untested / For Parts",
-    weight: "3.8",
-  },
-  {
-    label: "PS5 Disc Edition - Sobrecalentamiento",
-    url: "https://www.ebay.com/itm/22901839102",
-    title: "Sony PlayStation 5 Disc Edition CFI-1115A - Overheating Shut Down",
-    description: "La consola enciende perfectamente pero muestra mensaje de 'PS5 está muy caliente' a los 10 minutos de jugar juegos exigentes. Estética 9/10 con control original.",
-    price: "180",
-    platform: "eBay",
-    condition: "Usado - Con Defecto",
-    weight: "11.5",
-  },
-  {
-    label: "iPhone 13 Pro 128GB - Batería 72%",
-    url: "https://www.swappa.com/listing/iphone-13-pro/bad-battery",
-    title: "Apple iPhone 13 Pro 128GB Sierra Blue - Service Battery 72%",
-    description: "Swappa Verified. IMEI Limpio, iCloud desvinculado. Muestra aviso de 'Servicio de Batería'. Todo lo demás (FaceID, cámaras, TrueTone) funciona al 100%.",
-    price: "290",
-    platform: "Swappa",
-    condition: "Usado",
-    weight: "1.2",
-  },
-];
+const PRESET_EXAMPLES: Array<{label: string; url: string; title: string; description: string; price: string; platform: string; condition: string; weight: string}> = [];
 
 export const AIAnalyzerModule: React.FC<AIAnalyzerModuleProps> = ({
   settings,
@@ -326,6 +285,8 @@ export const AIAnalyzerModule: React.FC<AIAnalyzerModuleProps> = ({
 
         {/* Preset Sample Buttons */}
         <div className="mt-6 pt-4 border-t border-[#e6e4e0]">
+          {PRESET_EXAMPLES.length > 0 && (
+          <>
           <div className="text-xs font-medium text-[#616161] mb-2 flex items-center space-x-1">
             <Zap className="w-3.5 h-3.5 text-[#121212]" />
             <span>Probar con ejemplos reales de flipping (1-Click):</span>
@@ -342,6 +303,8 @@ export const AIAnalyzerModule: React.FC<AIAnalyzerModuleProps> = ({
               </button>
             ))}
           </div>
+          </>
+          )}
         </div>
       </div>
 
