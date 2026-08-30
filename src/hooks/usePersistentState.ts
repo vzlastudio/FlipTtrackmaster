@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { getAll, save, saveMany, StoreName, generateUUID } from "../lib/db";
-import { registerEvent } from "../lib/db";
 
 type SetStateAction<T> = T | ((prev: T) => T);
 
@@ -21,11 +20,8 @@ export function usePersistentState<T extends { id: string }>(
         if (cancelled) return;
         if (stored.length > 0) {
           setData(stored as T[]);
-        } else if (initialValue.length > 0) {
-          // Seed initial data if store is empty
-          await saveMany(storeName, initialValue);
-          registerEvent(`Base de datos '${storeName}' inicializada`, "sistema");
         }
+        // NO seed initial data — user starts with empty state
       } catch (err) {
         console.error(`Error loading ${storeName} from IndexedDB:`, err);
       } finally {

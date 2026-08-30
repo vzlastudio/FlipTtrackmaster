@@ -97,17 +97,3 @@ export async function registerEvent(
   await save("auditEvents", event);
 }
 
-export async function seedInitialDataIfEmpty<T extends { id: string }>(
-  store: StoreName,
-  initialData: T[]
-): Promise<boolean> {
-  const flagKey = `semillaInicial_${store}`;
-  if (localStorage.getItem(flagKey)) return false;
-
-  const existing = await getAll<T>(store);
-  if (existing.length > 0) return false;
-
-  await saveMany(store, initialData);
-  localStorage.setItem(flagKey, "true");
-  return true;
-}

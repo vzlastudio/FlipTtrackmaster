@@ -10,9 +10,9 @@ import {
   SaleInfo,
   PartOrder,
 } from "./types";
-import { initialFlips, initialTransactions, initialClients, initialDocuments, initialSettings } from "./data/initialData";
+import { initialSettings } from "./data/initialData";
 import { usePersistentState, usePersistentSingle } from "./hooks/usePersistentState";
-import { seedInitialDataIfEmpty, registerEvent } from "./lib/db";
+import { registerEvent } from "./lib/db";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
 import { LandingPage } from "./components/LandingPage";
@@ -80,22 +80,14 @@ export default function App() {
     return "dashboard";
   })();
   const [activeModule, setActiveModule] = useState<FlipModule>(initialModule);
-  const [flips, setFlips] = usePersistentState<FlipItem>("flips", initialFlips);
-  const [transactions, setTransactions] = usePersistentState<Transaction>("transactions", initialTransactions);
-  const [clients, setClients] = usePersistentState<Client>("clients", initialClients);
-  const [documents, setDocuments] = usePersistentState<DocumentFile>("documents", initialDocuments);
+  const [flips, setFlips] = usePersistentState<FlipItem>("flips", []);
+  const [transactions, setTransactions] = usePersistentState<Transaction>("transactions", []);
+  const [clients, setClients] = usePersistentState<Client>("clients", []);
+  const [documents, setDocuments] = usePersistentState<DocumentFile>("documents", []);
 
   const [selectedFlipForModal, setSelectedFlipForModal] = useState<FlipItem | null>(null);
 
-  // Seed initial data once on mount
-  useEffect(() => {
-    (async () => {
-      await seedInitialDataIfEmpty("flips", initialFlips);
-      await seedInitialDataIfEmpty("transactions", initialTransactions);
-      await seedInitialDataIfEmpty("clients", initialClients);
-      await seedInitialDataIfEmpty("documents", initialDocuments);
-    })();
-  }, []);
+  // No seed — user starts with empty state, data persists in IndexedDB
 
   // Ajustes persistidos en IndexedDB (singleton "global") — las API keys y
   // tasas sobreviven al recargar la página. Se siembran desde initialSettings.
